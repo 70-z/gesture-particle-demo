@@ -15,7 +15,6 @@ const TEXTS = {
   one: "青年才俊",
   two: "苏音唯美，爱泷不悔",
   three: "Silence牛逼克拉斯",
-  four: "",
 };
 const DEFAULT_IMAGES = [
   "./assets/gallery/1.jpg",
@@ -83,7 +82,6 @@ const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
   three: makeTextTargets(TEXTS.three),
-  four: makeTextTargets(TEXTS.four),
 };
 const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
@@ -333,13 +331,13 @@ function handleHandResults(results) {
     return;
   }
 
-  if (primaryCount >= 1 && primaryCount <= 4) {
+  if (primaryCount >= 1 && primaryCount <= 3) {
     setActiveShape(shapeKeyFromNumber(primaryCount));
   } else {
     gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
 
-  const textGestureActive = primaryCount >= 1 && primaryCount <= 4;
+  const textGestureActive = primaryCount >= 1 && primaryCount <= 3;
   targetSpread = Math.max(handSpread, openness * 0.72);
   if (textGestureActive) {
     targetSpread = handSpread > 0.22 ? THREE.MathUtils.smoothstep(handSpread, 0.22, 0.82) : 0;
@@ -516,26 +514,25 @@ function makeTextTargets(text, options = {}) {
 }
 
 function makeTextFloatPoint(scaleX, scaleY, yOffset) {
-  const side = Math.random();
-  let x;
-  let y;
-  if (side < 0.35) {
-    x = rand(-scaleX * 0.58, scaleX * 0.58);
-    y = yOffset + rand(scaleY * 0.42, scaleY * 0.88);
-  } else if (side < 0.7) {
-    x = rand(-scaleX * 0.58, scaleX * 0.58);
-    y = yOffset + rand(-scaleY * 0.88, -scaleY * 0.42);
-  } else if (side < 0.85) {
-    x = rand(-scaleX * 0.72, -scaleX * 0.48);
-    y = yOffset + rand(-scaleY * 0.52, scaleY * 0.52);
-  } else {
-    x = rand(scaleX * 0.48, scaleX * 0.72);
-    y = yOffset + rand(-scaleY * 0.52, scaleY * 0.52);
-  }
+  const clusterCenters = [
+    [-0.62, 0.34],
+    [-0.38, -0.62],
+    [0.08, 0.72],
+    [0.42, -0.48],
+    [0.68, 0.2],
+  ];
+  const center = clusterCenters[Math.floor(Math.random() * clusterCenters.length)];
+  const angle = Math.random() * Math.PI * 2;
+  const radius = Math.pow(Math.random(), 0.42) * rand(0.16, 0.58);
+  const spiral = Math.sin(radius * 8 + center[0] * 3) * 0.1;
+  const stretchX = rand(0.72, 1.45);
+  const stretchY = rand(0.55, 1.28);
+  const x = (center[0] + Math.cos(angle + spiral) * radius * stretchX + rand(-0.08, 0.08)) * scaleX;
+  const y = yOffset + (center[1] + Math.sin(angle) * radius * stretchY + rand(-0.08, 0.08)) * scaleY;
   return [
-    x + rand(-0.16, 0.16),
-    y + rand(-0.16, 0.16),
-    rand(-0.9, 0.9),
+    x,
+    y,
+    rand(-1.15, 1.15),
   ];
 }
 
@@ -632,16 +629,18 @@ function handleNumberAction(number, messagePrefix = "切换") {
     return;
   }
 
-  if (number >= 1 && number <= 4) {
+  if (number >= 1 && number <= 3) {
     const shape = shapeKeyFromNumber(number);
-    setActiveShape(shape, `${messagePrefix}：${TEXTS[shape] || "漂浮粒子"}`);
+    setActiveShape(shape, `${messagePrefix}：${TEXTS[shape]}`);
+  } else if (number === 4) {
+    showToast("手势 4 已删除；打开相册后按钮 4 可切第 4 张照片。");
   } else {
-    showToast("普通模式下手势 1/2/3/4 切文字，点击“相册”进入相册。");
+    showToast("普通模式下手势 1/2/3 切文字，点击“相册”进入相册。");
   }
 }
 
 function shapeKeyFromNumber(number) {
-  return ["one", "two", "three", "four"][number - 1] ?? "one";
+  return ["one", "two", "three"][number - 1] ?? "one";
 }
 
 function setActiveShape(shape, message) {
@@ -653,7 +652,7 @@ function setActiveShape(shape, message) {
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
   numberThreeButton.classList.toggle("active", shape === "three");
-  numberFourButton.classList.toggle("active", shape === "four");
+  numberFourButton.classList.remove("active");
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
@@ -664,7 +663,7 @@ function setActiveShape(shape, message) {
 }
 
 function numberFromShapeKey(shape) {
-  return { one: 1, two: 2, three: 3, four: 4 }[shape] ?? 1;
+  return { one: 1, two: 2, three: 3 }[shape] ?? 1;
 }
 
 function openGallery(folderKey = activeFolderKey) {

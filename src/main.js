@@ -13,9 +13,9 @@ const GITHUB_BRANCH = "main";
 const MANIFEST_PATH = "assets/gallery/manifest.json";
 const TEXTS = {
   one: "青年才俊",
-  two: "才智超群",
-  three: "苏音唯美，爱泷不悔",
-  four: "Silence牛逼克拉斯",
+  two: "苏音唯美，爱泷不悔",
+  three: "Silence牛逼克拉斯",
+  four: "",
 };
 const DEFAULT_IMAGES = [
   "./assets/gallery/1.jpg",
@@ -456,11 +456,12 @@ function animate() {
 }
 
 function makeTextTargets(text, options = {}) {
+  const floatRatio = options.floatRatio ?? 0.26;
   const textCanvas = document.createElement("canvas");
   const width = options.width ?? 1380;
   const height = options.height ?? 430;
-  const scaleX = options.scaleX ?? 13.6;
-  const scaleY = options.scaleY ?? 4.35;
+  const scaleX = options.scaleX ?? 15.4;
+  const scaleY = options.scaleY ?? 5.05;
   const yOffset = options.yOffset ?? 0;
   const zRange = options.zRange ?? 0.22;
   textCanvas.width = width;
@@ -471,9 +472,9 @@ function makeTextTargets(text, options = {}) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  let fontSize = options.fontSize ?? (text.length > 5 ? 178 : 220);
+  let fontSize = options.fontSize ?? (text.length > 9 ? 166 : text.length > 5 ? 198 : 258);
   ctx.font = `900 ${fontSize}px "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif`;
-  while (ctx.measureText(text).width > width * 0.9 && fontSize > 64) {
+  while (ctx.measureText(text).width > width * 0.94 && fontSize > 64) {
     fontSize -= 8;
     ctx.font = `900 ${fontSize}px "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif`;
   }
@@ -496,14 +497,46 @@ function makeTextTargets(text, options = {}) {
   if (!points.length) points.push([0, yOffset, 0]);
 
   const targets = new Float32Array(PARTICLE_COUNT * 3);
+  const textParticleCount = Math.max(0, Math.floor(PARTICLE_COUNT * (text ? 1 - floatRatio : 0)));
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
-    const source = points[i % points.length];
     const offset = i * 3;
-    targets[offset] = source[0] + rand(-0.018, 0.018);
-    targets[offset + 1] = source[1] + rand(-0.018, 0.018);
-    targets[offset + 2] = source[2];
+    if (i < textParticleCount) {
+      const source = points[i % points.length];
+      targets[offset] = source[0] + rand(-0.018, 0.018);
+      targets[offset + 1] = source[1] + rand(-0.018, 0.018);
+      targets[offset + 2] = source[2];
+    } else {
+      const halo = makeTextFloatPoint(scaleX, scaleY, yOffset);
+      targets[offset] = halo[0];
+      targets[offset + 1] = halo[1];
+      targets[offset + 2] = halo[2];
+    }
   }
   return targets;
+}
+
+function makeTextFloatPoint(scaleX, scaleY, yOffset) {
+  const side = Math.random();
+  let x;
+  let y;
+  if (side < 0.35) {
+    x = rand(-scaleX * 0.58, scaleX * 0.58);
+    y = yOffset + rand(scaleY * 0.42, scaleY * 0.88);
+  } else if (side < 0.7) {
+    x = rand(-scaleX * 0.58, scaleX * 0.58);
+    y = yOffset + rand(-scaleY * 0.88, -scaleY * 0.42);
+  } else if (side < 0.85) {
+    x = rand(-scaleX * 0.72, -scaleX * 0.48);
+    y = yOffset + rand(-scaleY * 0.52, scaleY * 0.52);
+  } else {
+    x = rand(scaleX * 0.48, scaleX * 0.72);
+    y = yOffset + rand(-scaleY * 0.52, scaleY * 0.52);
+  }
+  return [
+    x + rand(-0.16, 0.16),
+    y + rand(-0.16, 0.16),
+    rand(-0.9, 0.9),
+  ];
 }
 
 function makeAlbumTargets(label) {
@@ -601,7 +634,7 @@ function handleNumberAction(number, messagePrefix = "切换") {
 
   if (number >= 1 && number <= 4) {
     const shape = shapeKeyFromNumber(number);
-    setActiveShape(shape, `${messagePrefix}：${TEXTS[shape]}`);
+    setActiveShape(shape, `${messagePrefix}：${TEXTS[shape] || "漂浮粒子"}`);
   } else {
     showToast("普通模式下手势 1/2/3/4 切文字，点击“相册”进入相册。");
   }

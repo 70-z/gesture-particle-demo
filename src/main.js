@@ -1,7 +1,7 @@
 import * as THREE from "three";
 
-const PARTICLE_COUNT = 7600;
-const COUNTER_PARTICLES = 2600;
+const PARTICLE_COUNT = 11200;
+const COUNTER_PARTICLES = 3400;
 const CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const TEXTS = {
   one: "青年才俊",
@@ -37,6 +37,7 @@ const textTwoButton = document.querySelector("#textTwo");
 const numberThreeButton = document.querySelector("#numberThree");
 const numberFourButton = document.querySelector("#numberFour");
 const exitGalleryButton = document.querySelector("#exitGallery");
+const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
 const cjButton = document.querySelector("#cjButton");
 const cjUploadButton = document.querySelector("#cjUploadButton");
 const cjUpload = document.querySelector("#cjUpload");
@@ -137,6 +138,7 @@ textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"))
 numberThreeButton.addEventListener("click", () => handleNumberAction(3, "点击 3"));
 numberFourButton.addEventListener("click", () => handleNumberAction(4, "点击 4"));
 exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
+defaultGalleryButton.addEventListener("click", () => openGallery("default"));
 cjButton.addEventListener("click", () => openGallery("cj"));
 cjUploadButton.addEventListener("click", () => cjUpload.click());
 cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
@@ -193,7 +195,7 @@ async function setupHands({ force = false } = {}) {
     const trackLabel = stream.getVideoTracks()[0]?.label;
     const name = trackLabel || devices[0]?.label || "摄像头";
     debugStatus.textContent = `设备 ${devices.length || 1}`;
-    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 / 3，进入相册后 1-4 切图，双手退出。`);
+    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 切文字，两只手进入相册；相册内 1-4 切图，两只手退出。`);
   } catch (error) {
     cameraStatus.textContent = readableCameraError(error).title;
     gestureStatus.textContent = "手动演示";
@@ -323,13 +325,16 @@ function handleHandResults(results) {
     return;
   }
 
+  if (hands.length >= 2 && now - lastGalleryToggleAt > 1000) {
+    lastGalleryToggleAt = now;
+    openGallery("default");
+    return;
+  }
+
   if (primaryCount === 1) {
     setActiveShape("one");
   } else if (primaryCount === 2) {
     setActiveShape("two");
-  } else if (primaryCount === 3) {
-    openGallery("default");
-    return;
   } else {
     gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
@@ -599,9 +604,9 @@ function handleNumberAction(number, messagePrefix = "切换") {
   } else if (number === 2) {
     setActiveShape("two", `${messagePrefix}：才智超群`);
   } else if (number === 3) {
-    openGallery("default");
+    showToast("现在用两只手进入相册；按钮 3 在相册模式下切第 3 张。");
   } else {
-    showToast("普通模式下手势 1/2 切文字，手势 3 进入相册。");
+    showToast("普通模式下手势 1/2 切文字，两只手进入相册。");
   }
 }
 
@@ -616,6 +621,7 @@ function setActiveShape(shape, message) {
   numberThreeButton.classList.remove("active");
   numberFourButton.classList.remove("active");
   exitGalleryButton.classList.remove("active");
+  defaultGalleryButton.classList.remove("active");
   cjButton.classList.remove("active");
   gestureStatus.textContent = shape === "one" ? "手势 1" : "手势 2";
   if (message) showToast(message);
@@ -635,6 +641,7 @@ function openGallery(albumKey = "default") {
   numberThreeButton.classList.toggle("active", activeAlbumKey === "default");
   numberFourButton.classList.toggle("active", galleryIndex === 3);
   exitGalleryButton.classList.add("active");
+  defaultGalleryButton.classList.toggle("active", activeAlbumKey === "default");
   cjButton.classList.toggle("active", activeAlbumKey === "cj");
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
@@ -732,6 +739,7 @@ function updateNumberButtonState() {
   numberThreeButton.classList.toggle("active", isOpen && galleryIndex === 2);
   numberFourButton.classList.toggle("active", isOpen && galleryIndex === 3);
   exitGalleryButton.classList.toggle("active", isOpen);
+  defaultGalleryButton.classList.toggle("active", isOpen && activeAlbumKey === "default");
   cjButton.classList.toggle("active", isOpen && activeAlbumKey === "cj");
 }
 

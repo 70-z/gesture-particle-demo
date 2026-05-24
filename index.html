@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D 手势粒子系统</title>
-    <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="./src/styles.css?v=18" />
   </head>
   <body>
     <main id="app">
@@ -16,7 +16,7 @@
           <span class="brand-mark"></span>
           <div>
             <strong>实时 3D 粒子系统</strong>
-            <span>普通模式 1/2/3，相册模式 1-4，双手退出</span>
+            <span>普通模式 1/2，双手进出相册，相册 1-4 切图</span>
           </div>
         </div>
 
@@ -43,9 +43,10 @@
       <section class="control-panel" aria-label="演示控制">
         <button id="textOne" type="button" aria-label="切换到青年才俊">1</button>
         <button id="textTwo" type="button" aria-label="切换到才智超群">2</button>
-        <button id="numberThree" type="button" aria-label="进入相册或切换第 3 张">3</button>
+        <button id="numberThree" type="button" aria-label="切换第 3 张">3</button>
         <button id="numberFour" type="button" aria-label="切换第 4 张">4</button>
         <button id="exitGallery" type="button" aria-label="退出相册">退出</button>
+        <button id="defaultGalleryButton" type="button" aria-label="打开默认相册">相册</button>
         <button id="cjButton" type="button" aria-label="打开 cj 相册">cj</button>
         <button id="cjUploadButton" type="button" aria-label="上传到 cj 相册">上传</button>
         <input id="cjUpload" class="upload-input" type="file" accept="image/*" multiple />
@@ -80,6 +81,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=17"></script>
+    <script type="module" src="./src/main.js?v=18"></script>
   </body>
 </html>

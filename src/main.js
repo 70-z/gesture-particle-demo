@@ -280,7 +280,7 @@ function handleHandResults(results) {
   const textGestureActive = primaryCount === 1 || primaryCount === 2;
   targetSpread = Math.max(handSpread, openness * 0.72);
   if (textGestureActive) {
-    targetSpread = handSpread > 0.48 ? handSpread : 0;
+    targetSpread = handSpread > 0.22 ? THREE.MathUtils.smoothstep(handSpread, 0.22, 0.82) : 0;
   }
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
@@ -338,24 +338,27 @@ function animate() {
   const gestureRecentlySeen = performance.now() - lastGestureAt < 1200;
   const textGestureRecentlySeen = performance.now() - lastTextGestureAt < 1600;
   rotationBlend += ((gestureRecentlySeen ? 0 : 1) - rotationBlend) * 0.075;
-  stableTextBlend += ((textGestureRecentlySeen ? 1 : 0) - stableTextBlend) * 0.12;
-  smoothedSpread += (targetSpread - smoothedSpread) * 0.08;
+  const expanding = targetSpread > 0.18;
+  stableTextBlend += ((textGestureRecentlySeen && !expanding ? 1 : 0) - stableTextBlend) * 0.14;
+  smoothedSpread += (targetSpread - smoothedSpread) * (expanding ? 0.18 : 0.1);
   const shape = shapeTargets[activeShape];
   const stillness = stableTextBlend;
   const breath = Math.sin(elapsed * 1.4) * 0.05 * (1 - stillness);
   const rawSpread = smoothedSpread + breath;
   const visualSpread = Math.max(0, rawSpread * (1 - stillness * 0.98));
-  const twist = visualSpread * 0.45 * (1 - stillness);
-  const targetScale = 1 + visualSpread * 1.95;
+  const burst = THREE.MathUtils.smoothstep(visualSpread, 0.04, 0.9);
+  const twist = visualSpread * THREE.MathUtils.lerp(0.45, 1.15, burst) * (1 - stillness);
+  const targetScale = 1 + visualSpread * THREE.MathUtils.lerp(1.15, 2.8, burst);
 
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
     const offset = i * 3;
     const sx = shape[offset];
     const sy = shape[offset + 1];
     const sz = shape[offset + 2];
-    const rx = scatterTargets[offset] * visualSpread * 1.45;
-    const ry = scatterTargets[offset + 1] * visualSpread * 1.2;
-    const rz = scatterTargets[offset + 2] * visualSpread * 1.7;
+    const wave = Math.sin(elapsed * 2.2 + i * 0.013) * 0.22 * burst;
+    const rx = scatterTargets[offset] * visualSpread * 2.75 + wave;
+    const ry = scatterTargets[offset + 1] * visualSpread * 2.05 + Math.cos(elapsed * 1.7 + i * 0.01) * 0.16 * burst;
+    const rz = scatterTargets[offset + 2] * visualSpread * 3.35;
 
     const angle = twist * sy + elapsed * 0.05 * (1 - stillness);
     const cos = Math.cos(angle);

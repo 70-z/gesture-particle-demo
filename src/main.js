@@ -290,20 +290,12 @@ function handleHandResults(results) {
   const fingerCounts = hands.map(countExtendedFingers);
   const handSpread = computeTwoHandSpread(hands);
   const openness = hands.reduce((sum, hand) => sum + computeHandOpenness(hand), 0) / hands.length;
-  const primaryCount = fingerCounts.includes(3)
-    ? 3
-    : fingerCounts.includes(2)
-      ? 2
-      : fingerCounts.includes(1)
-        ? 1
-        : fingerCounts[0];
-  const bothPalmsOpen = hands.length >= 2 && fingerCounts.slice(0, 2).every((count) => count >= 5);
+  const primaryCount = [5, 4, 3, 2, 1].find((count) => fingerCounts.includes(count)) ?? fingerCounts[0];
   const now = performance.now();
 
-  if (bothPalmsOpen && now - lastGalleryToggleAt > 1400) {
+  if (galleryState !== "open" && primaryCount === 3 && now - lastGalleryToggleAt > 1400) {
     lastGalleryToggleAt = now;
-    if (galleryState === "open") closeGallery();
-    else openGallery();
+    openGallery();
     return;
   }
 
@@ -535,7 +527,7 @@ function openGallery() {
   galleryButton.classList.add("active");
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
-  showToast("已进入相册：手势 1 / 2 / 3 / 4 切换照片，双手掌十根手指全部伸出退出。");
+  showToast("已进入相册：手势 1 / 2 / 3 / 4 切换照片，手势 5 退出。");
 }
 
 function closeGallery() {
@@ -555,8 +547,13 @@ function handleGalleryGestures(primaryCount, handSpread, openness) {
   targetSpread = Math.max(handSpread, openness * 0.72);
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
-  motionStatus.textContent = "相册";
+  motionStatus.textContent = primaryCount === 5 ? "退出相册" : "相册";
   const now = performance.now();
+  if (primaryCount === 5 && now - lastGalleryToggleAt > 1400) {
+    lastGalleryToggleAt = now;
+    closeGallery();
+    return;
+  }
   if (now - lastPhotoSwitchAt < 850) return;
   if (primaryCount >= 1 && primaryCount <= 4) showGalleryPhoto(primaryCount - 1);
 }

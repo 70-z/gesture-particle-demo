@@ -14,6 +14,8 @@ const MANIFEST_PATH = "assets/gallery/manifest.json";
 const TEXTS = {
   one: "青年才俊",
   two: "才智超群",
+  three: "苏音唯美，爱泷不悔",
+  four: "Silence牛逼克拉斯",
 };
 const DEFAULT_IMAGES = [
   "./assets/gallery/1.jpg",
@@ -80,6 +82,8 @@ const velocity = new Float32Array(PARTICLE_COUNT * 3);
 const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
+  three: makeTextTargets(TEXTS.three),
+  four: makeTextTargets(TEXTS.four),
 };
 const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
@@ -205,7 +209,7 @@ async function setupHands({ force = false } = {}) {
     const trackLabel = stream.getVideoTracks()[0]?.label;
     const name = trackLabel || devices[0]?.label || "摄像头";
     debugStatus.textContent = `设备 ${devices.length || 1}`;
-    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 切文字；点击进入或退出相册，相册内手势 1-4 切图。`);
+    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 / 3 / 4 切文字；相册内手势 1-4 切图。`);
   } catch (error) {
     cameraStatus.textContent = readableCameraError(error).title;
     gestureStatus.textContent = "手动演示";
@@ -329,15 +333,13 @@ function handleHandResults(results) {
     return;
   }
 
-  if (primaryCount === 1) {
-    setActiveShape("one");
-  } else if (primaryCount === 2) {
-    setActiveShape("two");
+  if (primaryCount >= 1 && primaryCount <= 4) {
+    setActiveShape(shapeKeyFromNumber(primaryCount));
   } else {
     gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
 
-  const textGestureActive = primaryCount === 1 || primaryCount === 2;
+  const textGestureActive = primaryCount >= 1 && primaryCount <= 4;
   targetSpread = Math.max(handSpread, openness * 0.72);
   if (textGestureActive) {
     targetSpread = handSpread > 0.22 ? THREE.MathUtils.smoothstep(handSpread, 0.22, 0.82) : 0;
@@ -597,15 +599,16 @@ function handleNumberAction(number, messagePrefix = "切换") {
     return;
   }
 
-  if (number === 1) {
-    setActiveShape("one", `${messagePrefix}：青年才俊`);
-  } else if (number === 2) {
-    setActiveShape("two", `${messagePrefix}：才智超群`);
-  } else if (number === 3) {
-    showToast("点击“相册”或“cj”进入相册；按钮 3 在相册模式下切第 3 张。");
+  if (number >= 1 && number <= 4) {
+    const shape = shapeKeyFromNumber(number);
+    setActiveShape(shape, `${messagePrefix}：${TEXTS[shape]}`);
   } else {
-    showToast("普通模式下手势 1/2 切文字，点击“相册”或“cj”进入相册。");
+    showToast("普通模式下手势 1/2/3/4 切文字，点击“相册”进入相册。");
   }
+}
+
+function shapeKeyFromNumber(number) {
+  return ["one", "two", "three", "four"][number - 1] ?? "one";
 }
 
 function setActiveShape(shape, message) {
@@ -616,15 +619,19 @@ function setActiveShape(shape, message) {
   lastTextGestureAt = performance.now();
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
-  numberThreeButton.classList.remove("active");
-  numberFourButton.classList.remove("active");
+  numberThreeButton.classList.toggle("active", shape === "three");
+  numberFourButton.classList.toggle("active", shape === "four");
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
   authButton.classList.toggle("active", hasGithubToken());
   deletePhotoButton.classList.remove("active");
-  gestureStatus.textContent = shape === "one" ? "手势 1" : "手势 2";
+  gestureStatus.textContent = `手势 ${numberFromShapeKey(shape)}`;
   if (message) showToast(message);
+}
+
+function numberFromShapeKey(shape) {
+  return { one: 1, two: 2, three: 3, four: 4 }[shape] ?? 1;
 }
 
 function openGallery(folderKey = activeFolderKey) {

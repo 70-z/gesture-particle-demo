@@ -2,7 +2,10 @@ import * as THREE from "three";
 
 const PARTICLE_COUNT = 11200;
 const COUNTER_PARTICLES = 3400;
-const CJ_STORAGE_KEY = "gestureParticleCjAlbum";
+const ALBUM_STORAGE_KEY = "gestureParticleAlbumFolders";
+const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
+const DEFAULT_FOLDER_KEY = "20260509";
+const CJ_FOLDER_KEY = "cj";
 const TEXTS = {
   one: "青年才俊",
   two: "才智超群",
@@ -14,16 +17,7 @@ const DEFAULT_IMAGES = [
   "./assets/gallery/4.jpg",
 ];
 
-const albums = {
-  default: {
-    title: "相册",
-    images: DEFAULT_IMAGES,
-  },
-  cj: {
-    title: "cj",
-    images: loadStoredCjImages(),
-  },
-};
+const folders = loadStoredFolders();
 
 const canvas = document.querySelector("#scene");
 const video = document.querySelector("#camera");
@@ -38,7 +32,8 @@ const numberThreeButton = document.querySelector("#numberThree");
 const numberFourButton = document.querySelector("#numberFour");
 const exitGalleryButton = document.querySelector("#exitGallery");
 const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
-const cjButton = document.querySelector("#cjButton");
+const newFolderButton = document.querySelector("#newFolderButton");
+const folderSelect = document.querySelector("#folderSelect");
 const cjUploadButton = document.querySelector("#cjUploadButton");
 const cjUpload = document.querySelector("#cjUpload");
 const cameraRetryButton = document.querySelector("#cameraRetry");
@@ -48,6 +43,7 @@ const galleryImage = document.querySelector("#galleryImage");
 const galleryTitle = document.querySelector("#galleryTitle");
 const galleryCounter = document.querySelector("#galleryCounter");
 const galleryEmpty = document.querySelector("#galleryEmpty");
+const folderTabs = document.querySelector("#folderTabs");
 const galleryPrev = document.querySelector("#galleryPrev");
 const galleryNext = document.querySelector("#galleryNext");
 const toast = document.querySelector("#toast");
@@ -112,7 +108,7 @@ const points = new THREE.Points(geometry, material);
 group.add(points);
 
 let activeShape = "one";
-let activeAlbumKey = "default";
+let activeFolderKey = DEFAULT_FOLDER_KEY;
 let targetSpread = 0.36;
 let smoothedSpread = targetSpread;
 let hasHands = false;
@@ -138,13 +134,16 @@ textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"))
 numberThreeButton.addEventListener("click", () => handleNumberAction(3, "点击 3"));
 numberFourButton.addEventListener("click", () => handleNumberAction(4, "点击 4"));
 exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
-defaultGalleryButton.addEventListener("click", () => openGallery("default"));
-cjButton.addEventListener("click", () => openGallery("cj"));
+defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey));
+newFolderButton.addEventListener("click", createFolder);
 cjUploadButton.addEventListener("click", () => cjUpload.click());
 cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
 galleryPrev.addEventListener("click", () => switchGalleryPhoto(-1));
 galleryNext.addEventListener("click", () => switchGalleryPhoto(1));
 cjUpload.addEventListener("change", handleCjUpload);
+folderSelect.addEventListener("change", () => {
+  if (folders[folderSelect.value]) openGallery(folderSelect.value);
+});
 spreadControl.addEventListener("input", () => {
   targetSpread = Number(spreadControl.value) / 100;
   motionStatus.textContent = spreadLabel(targetSpread);
@@ -168,6 +167,7 @@ window.addEventListener("pointermove", (event) => {
 });
 
 animate();
+renderFolderControls();
 setupHands();
 
 async function setupHands({ force = false } = {}) {
@@ -610,13 +610,13 @@ function setActiveShape(shape, message) {
   numberFourButton.classList.remove("active");
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
-  cjButton.classList.remove("active");
+  newFolderButton.classList.remove("active");
   gestureStatus.textContent = shape === "one" ? "手势 1" : "手势 2";
   if (message) showToast(message);
 }
 
-function openGallery(albumKey = "default") {
-  activeAlbumKey = albums[albumKey] ? albumKey : "default";
+function openGallery(folderKey = activeFolderKey) {
+  activeFolderKey = folders[folderKey] ? folderKey : DEFAULT_FOLDER_KEY;
   galleryState = "open";
   galleryIndex = Math.min(galleryIndex, Math.max(0, getActiveImages().length - 1));
   targetSpread = 0.32;
@@ -626,15 +626,15 @@ function openGallery(albumKey = "default") {
   gallery.setAttribute("aria-hidden", "false");
   textOneButton.classList.remove("active");
   textTwoButton.classList.remove("active");
-  numberThreeButton.classList.toggle("active", activeAlbumKey === "default");
+  numberThreeButton.classList.remove("active");
   numberFourButton.classList.toggle("active", galleryIndex === 3);
   exitGalleryButton.classList.add("active");
-  defaultGalleryButton.classList.toggle("active", activeAlbumKey === "default");
-  cjButton.classList.toggle("active", activeAlbumKey === "cj");
+  defaultGalleryButton.classList.add("active");
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
+  renderFolderControls();
   updateGalleryPhoto();
-  showToast(activeAlbumKey === "cj" ? "已打开 cj 相册，可以点“上传”加入照片。" : "已进入相册：手势 1 / 2 / 3 / 4 或按钮切换照片，点击“退出”离开。");
+  showToast(`已打开 ${folders[activeFolderKey].title} 文件夹，可选择文件夹上传照片。`);
 }
 
 function closeGallery(message = "已退出相册。") {
@@ -675,7 +675,7 @@ function switchGalleryPhoto(direction) {
 function showGalleryPhoto(index, message) {
   const images = getActiveImages();
   if (!images.length) {
-    showToast(activeAlbumKey === "cj" ? "cj 相册还没有照片，点“上传”添加。" : "当前相册还没有照片。");
+    showToast(`${folders[activeFolderKey].title} 文件夹还没有照片，选择文件夹后点“上传”添加。`);
     return;
   }
   if (index < 0 || index >= images.length) {
@@ -693,16 +693,16 @@ function showGalleryPhoto(index, message) {
 }
 
 function updateGalleryPhoto() {
-  const album = albums[activeAlbumKey];
+  const folder = folders[activeFolderKey];
   const images = getActiveImages();
-  galleryTitle.textContent = album.title;
+  galleryTitle.textContent = folder.title;
   galleryFrame.classList.add("switching");
 
   window.setTimeout(() => {
-  if (images.length) {
+    if (images.length) {
       galleryIndex = THREE.MathUtils.clamp(galleryIndex, 0, images.length - 1);
       galleryImage.src = images[galleryIndex];
-      galleryImage.alt = `${album.title}照片 ${galleryIndex + 1}`;
+      galleryImage.alt = `${folder.title}照片 ${galleryIndex + 1}`;
       galleryImage.hidden = false;
       galleryEmpty.hidden = true;
       galleryCounter.textContent = `${galleryIndex + 1} / ${images.length}`;
@@ -712,6 +712,7 @@ function updateGalleryPhoto() {
       galleryImage.removeAttribute("src");
       galleryImage.hidden = true;
       galleryEmpty.hidden = false;
+      galleryEmpty.textContent = folder.title;
       galleryCounter.textContent = "0 / 0";
       activeTargets = makeAlbumTargets("0/0");
       updateNumberButtonState();
@@ -727,25 +728,25 @@ function updateNumberButtonState() {
   numberThreeButton.classList.toggle("active", isOpen && galleryIndex === 2);
   numberFourButton.classList.toggle("active", isOpen && galleryIndex === 3);
   exitGalleryButton.classList.toggle("active", isOpen);
-  defaultGalleryButton.classList.toggle("active", isOpen && activeAlbumKey === "default");
-  cjButton.classList.toggle("active", isOpen && activeAlbumKey === "cj");
+  defaultGalleryButton.classList.toggle("active", isOpen);
 }
 
 async function handleCjUpload() {
   const files = Array.from(cjUpload.files ?? []).filter((file) => file.type.startsWith("image/"));
   cjUpload.value = "";
   if (!files.length) return;
+  const targetKey = folders[folderSelect.value] ? folderSelect.value : activeFolderKey;
 
   try {
     debugStatus.textContent = "上传处理中";
     const compressed = await Promise.all(files.map(compressImageFile));
-    albums.cj.images.push(...compressed);
-    saveStoredCjImages(albums.cj.images);
-    galleryIndex = Math.max(0, albums.cj.images.length - compressed.length);
-    openGallery("cj");
+    folders[targetKey].images.push(...compressed);
+    saveStoredFolders();
+    galleryIndex = Math.max(0, folders[targetKey].images.length - compressed.length);
+    openGallery(targetKey);
     updateGalleryPhoto();
-    debugStatus.textContent = `cj ${albums.cj.images.length} 张`;
-    showToast(`已加入 ${compressed.length} 张照片到 cj 相册。`);
+    debugStatus.textContent = `${folders[targetKey].title} ${folders[targetKey].images.length} 张`;
+    showToast(`已加入 ${compressed.length} 张照片到 ${folders[targetKey].title} 文件夹。`);
   } catch (error) {
     console.warn(error);
     debugStatus.textContent = "上传失败";
@@ -778,21 +779,119 @@ function compressImageFile(file) {
   });
 }
 
-function loadStoredCjImages() {
+function loadStoredFolders() {
+  const base = {
+    [DEFAULT_FOLDER_KEY]: {
+      title: DEFAULT_FOLDER_KEY,
+      images: DEFAULT_IMAGES,
+      builtIn: true,
+    },
+    [CJ_FOLDER_KEY]: {
+      title: CJ_FOLDER_KEY,
+      images: [],
+    },
+  };
+
   try {
-    const parsed = JSON.parse(localStorage.getItem(CJ_STORAGE_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+    const parsed = JSON.parse(localStorage.getItem(ALBUM_STORAGE_KEY) || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      for (const [key, value] of Object.entries(parsed)) {
+        if (!value || typeof value !== "object") continue;
+        const title = typeof value.title === "string" && value.title.trim() ? value.title.trim() : key;
+        const images = Array.isArray(value.images) ? value.images.filter((item) => typeof item === "string") : [];
+        base[key] = {
+          title,
+          images: key === DEFAULT_FOLDER_KEY ? DEFAULT_IMAGES : images,
+          builtIn: key === DEFAULT_FOLDER_KEY,
+        };
+      }
+    }
+
+    const legacyCj = JSON.parse(localStorage.getItem(LEGACY_CJ_STORAGE_KEY) || "[]");
+    if (Array.isArray(legacyCj) && legacyCj.length && !base[CJ_FOLDER_KEY].images.length) {
+      base[CJ_FOLDER_KEY].images = legacyCj.filter((item) => typeof item === "string");
+      localStorage.removeItem(LEGACY_CJ_STORAGE_KEY);
+      localStorage.setItem(ALBUM_STORAGE_KEY, JSON.stringify(serializeFolders(base)));
+    }
   } catch {
-    return [];
   }
+  return base;
 }
 
-function saveStoredCjImages(images) {
-  localStorage.setItem(CJ_STORAGE_KEY, JSON.stringify(images));
+function saveStoredFolders() {
+  localStorage.setItem(ALBUM_STORAGE_KEY, JSON.stringify(serializeFolders(folders)));
+}
+
+function serializeFolders(source) {
+  return Object.fromEntries(Object.entries(source).map(([key, folder]) => [
+    key,
+    {
+      title: folder.title,
+      images: folder.builtIn ? [] : folder.images,
+      builtIn: !!folder.builtIn,
+    },
+  ]));
 }
 
 function getActiveImages() {
-  return albums[activeAlbumKey]?.images ?? [];
+  return folders[activeFolderKey]?.images ?? [];
+}
+
+function renderFolderControls() {
+  folderSelect.innerHTML = "";
+  folderTabs.innerHTML = "";
+
+  for (const [key, folder] of Object.entries(folders)) {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = `${folder.title} (${folder.images.length})`;
+    option.selected = key === activeFolderKey;
+    folderSelect.append(option);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = folder.title;
+    button.className = key === activeFolderKey ? "active" : "";
+    button.addEventListener("click", () => {
+      galleryIndex = 0;
+      openGallery(key);
+    });
+    folderTabs.append(button);
+  }
+}
+
+function createFolder() {
+  const raw = window.prompt("请输入新文件夹名称", "");
+  const title = raw?.trim();
+  if (!title) return;
+
+  const key = makeFolderKey(title);
+  if (folders[key]) {
+    showToast("这个文件夹已经存在。");
+    return;
+  }
+
+  folders[key] = {
+    title,
+    images: [],
+  };
+  activeFolderKey = key;
+  galleryIndex = 0;
+  saveStoredFolders();
+  renderFolderControls();
+  openGallery(key);
+  showToast(`已新建 ${title} 文件夹。`);
+}
+
+function makeFolderKey(title) {
+  const normalized = title.toLowerCase().replace(/\s+/g, "-").replace(/[^\w\u4e00-\u9fa5-]/g, "");
+  let key = normalized || `folder-${Date.now()}`;
+  let suffix = 2;
+  while (folders[key]) {
+    key = `${normalized}-${suffix}`;
+    suffix += 1;
+  }
+  return key;
 }
 
 function spreadLabel(value) {

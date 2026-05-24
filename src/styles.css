@@ -154,7 +154,8 @@ body {
   border-radius: 8px;
 }
 
-.control-panel button {
+.control-panel button,
+.control-panel select {
   min-width: 42px;
   height: 42px;
   padding: 0 12px;
@@ -167,9 +168,18 @@ body {
 }
 
 .control-panel button.active,
-.control-panel button:hover {
+.control-panel button:hover,
+.control-panel select:hover,
+.control-panel select:focus {
   border-color: rgba(255, 138, 198, 0.76);
   background: rgba(255, 93, 168, 0.2);
+  outline: none;
+}
+
+.control-panel select {
+  max-width: 170px;
+  color: var(--soft);
+  appearance: none;
 }
 
 .control-panel label {
@@ -214,6 +224,40 @@ body {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
+}
+
+.folder-tabs {
+  position: fixed;
+  left: 50%;
+  top: 118px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: min(720px, calc(100vw - 32px));
+  transform: translateX(-50%);
+}
+
+.folder-tabs button {
+  min-width: 78px;
+  height: 36px;
+  padding: 0 13px;
+  border: 1px solid rgba(255, 174, 216, 0.38);
+  border-radius: 8px;
+  color: var(--soft);
+  background: rgba(50, 12, 38, 0.64);
+  font: 800 13px / 1 "Microsoft YaHei UI", system-ui, sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 24px rgba(255, 93, 168, 0.12);
+}
+
+.folder-tabs button.active,
+.folder-tabs button:hover {
+  border-color: rgba(255, 138, 198, 0.88);
+  color: #fff7fb;
+  background: rgba(255, 93, 168, 0.24);
 }
 
 .gallery-frame {
@@ -423,6 +467,22 @@ body {
     flex: 0 0 auto;
     min-width: 38px;
     height: 38px;
+    padding: 0 10px;
+  }
+
+  .control-panel select {
+    flex: 1 1 126px;
+    height: 38px;
+  }
+
+  .folder-tabs {
+    top: 196px;
+    gap: 6px;
+  }
+
+  .folder-tabs button {
+    min-width: 68px;
+    height: 32px;
     padding: 0 10px;
   }
 

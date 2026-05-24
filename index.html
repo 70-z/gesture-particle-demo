@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D 手势粒子系统</title>
-    <link rel="stylesheet" href="./src/styles.css?v=19" />
+    <title>青年才俊</title>
+    <link rel="stylesheet" href="./src/styles.css?v=20" />
   </head>
   <body>
     <main id="app">
@@ -15,8 +15,8 @@
         <div class="brand">
           <span class="brand-mark"></span>
           <div>
-            <strong>实时 3D 粒子系统</strong>
-            <span>点击进出相册，普通模式 1/2，相册 1-4 切图</span>
+            <strong>青年才俊</strong>
+            <span>点击进入相册，选择文件夹上传照片</span>
           </div>
         </div>
 
@@ -46,9 +46,10 @@
         <button id="numberThree" type="button" aria-label="切换第 3 张">3</button>
         <button id="numberFour" type="button" aria-label="切换第 4 张">4</button>
         <button id="exitGallery" type="button" aria-label="退出相册">退出</button>
-        <button id="defaultGalleryButton" type="button" aria-label="打开默认相册">相册</button>
-        <button id="cjButton" type="button" aria-label="打开 cj 相册">cj</button>
-        <button id="cjUploadButton" type="button" aria-label="上传到 cj 相册">上传</button>
+        <button id="defaultGalleryButton" type="button" aria-label="打开相册">相册</button>
+        <button id="newFolderButton" type="button" aria-label="新建相册文件夹">新建</button>
+        <select id="folderSelect" aria-label="选择上传文件夹"></select>
+        <button id="cjUploadButton" type="button" aria-label="上传照片">上传</button>
         <input id="cjUpload" class="upload-input" type="file" accept="image/*" multiple />
         <button id="cameraRetry" type="button" aria-label="重新连接摄像头">摄像头</button>
         <label>
@@ -58,6 +59,7 @@
       </section>
 
       <section id="gallery" class="gallery" aria-label="相册" aria-hidden="true">
+        <div id="folderTabs" class="folder-tabs" aria-label="相册文件夹"></div>
         <button id="galleryPrev" class="gallery-nav prev" type="button" aria-label="上一张">‹</button>
         <figure class="gallery-frame">
           <img id="galleryImage" alt="相册照片" />
@@ -65,7 +67,7 @@
             <strong id="galleryTitle">相册</strong>
             <span id="galleryCounter">1 / 4</span>
           </figcaption>
-          <p id="galleryEmpty">cj</p>
+          <p id="galleryEmpty">相册</p>
         </figure>
         <button id="galleryNext" class="gallery-nav next" type="button" aria-label="下一张">›</button>
       </section>
@@ -81,6 +83,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=19"></script>
+    <script type="module" src="./src/main.js?v=20"></script>
   </body>
 </html>

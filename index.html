@@ -16,7 +16,7 @@
           <span class="brand-mark"></span>
           <div>
             <strong>实时 3D 粒子系统</strong>
-            <span>双手张合控制扩散，手势 1 / 2 切换文字</span>
+            <span>手势 1 / 2 切换文字，手势 3 进入相册</span>
           </div>
         </div>
 
@@ -43,11 +43,24 @@
       <section class="control-panel" aria-label="演示控制">
         <button id="textOne" type="button" aria-label="切换到青年才俊">1</button>
         <button id="textTwo" type="button" aria-label="切换到长长久久">2</button>
+        <button id="galleryButton" type="button" aria-label="进入相册">3</button>
         <button id="cameraRetry" type="button" aria-label="重新连接摄像头">摄像头</button>
         <label>
           <span>扩散</span>
           <input id="spreadControl" type="range" min="0" max="100" value="36" />
         </label>
+      </section>
+
+      <section id="gallery" class="gallery" aria-label="相册" aria-hidden="true">
+        <button id="galleryPrev" class="gallery-nav prev" type="button" aria-label="上一张">‹</button>
+        <figure class="gallery-frame">
+          <img id="galleryImage" alt="相册照片" />
+          <figcaption>
+            <strong>相册</strong>
+            <span id="galleryCounter">1 / 4</span>
+          </figcaption>
+        </figure>
+        <button id="galleryNext" class="gallery-nav next" type="button" aria-label="下一张">›</button>
       </section>
 
       <div id="toast" role="status"></div>
@@ -61,6 +74,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=9"></script>
+    <script type="module" src="./src/main.js?v=11"></script>
   </body>
 </html>

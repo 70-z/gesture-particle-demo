@@ -179,6 +179,101 @@ body {
   accent-color: var(--cyan);
 }
 
+.gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(54px, 10vw) minmax(0, 1fr) minmax(54px, 10vw);
+  align-items: center;
+  gap: 12px;
+  padding: 104px 24px 88px;
+  background:
+    linear-gradient(90deg, rgba(7, 10, 18, 0.82), transparent 20%, transparent 80%, rgba(7, 10, 18, 0.82)),
+    rgba(7, 10, 18, 0.58);
+  opacity: 0;
+  transform: scale(1.025);
+  transition:
+    opacity 320ms ease,
+    transform 420ms ease;
+  pointer-events: none;
+}
+
+.gallery.open {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.gallery-frame {
+  position: relative;
+  width: min(78vw, 1120px);
+  height: min(70vh, 720px);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(4, 8, 15, 0.8);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+}
+
+.gallery-frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #050812;
+  transition:
+    opacity 180ms ease,
+    transform 280ms ease;
+}
+
+.gallery-frame.switching img {
+  opacity: 0.18;
+  transform: scale(0.985);
+}
+
+.gallery-frame figcaption {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(5, 8, 15, 0.58);
+  backdrop-filter: blur(14px);
+  color: rgba(247, 251, 255, 0.9);
+}
+
+.gallery-frame figcaption strong,
+.gallery-frame figcaption span {
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.gallery-nav {
+  width: 52px;
+  height: 52px;
+  justify-self: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  color: var(--paper);
+  background: rgba(8, 14, 25, 0.56);
+  font: 400 34px / 1 system-ui, sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(16px);
+}
+
+.gallery-nav:hover {
+  border-color: rgba(57, 217, 255, 0.72);
+  background: rgba(57, 217, 255, 0.16);
+}
+
 #toast {
   position: fixed;
   left: 50%;
@@ -220,6 +315,23 @@ body {
     right: 12px;
     bottom: 82px;
     width: 148px;
+  }
+
+  .gallery {
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    gap: 6px;
+    padding: 190px 10px 86px;
+  }
+
+  .gallery-frame {
+    width: 100%;
+    height: min(54vh, 520px);
+  }
+
+  .gallery-nav {
+    width: 38px;
+    height: 38px;
+    font-size: 27px;
   }
 
   .control-panel {

@@ -132,6 +132,10 @@ let activeStream = null;
 let rotationBlend = 1;
 let stableTextBlend = 0;
 let lastTextGestureAt = 0;
+let stableFingerCount = 0;
+let pendingFingerCount = 0;
+let pendingFingerCountAt = 0;
+let lastFiveFingerAt = 0;
 let galleryState = "closed";
 let galleryIndex = 0;
 let lastPhotoSwitchAt = 0;
@@ -328,7 +332,8 @@ function handleHandResults(results) {
   const fingerCounts = hands.map(countExtendedFingers);
   const handSpread = computeTwoHandSpread(hands);
   const openness = hands.reduce((sum, hand) => sum + computeHandOpenness(hand), 0) / hands.length;
-  const primaryCount = [5, 4, 3, 2, 1].find((count) => fingerCounts.includes(count)) ?? fingerCounts[0];
+  const rawPrimaryCount = [5, 4, 3, 2, 1].find((count) => fingerCounts.includes(count)) ?? fingerCounts[0];
+  const primaryCount = smoothFingerCount(rawPrimaryCount);
 
   if (galleryState === "open") {
     handleGalleryGestures(primaryCount, handSpread, openness);
@@ -355,25 +360,64 @@ function handleHandResults(results) {
 
 function countExtendedFingers(landmarks) {
   const palmSize = distance2D(landmarks[0], landmarks[9]) || 0.1;
-  const tips = [8, 12, 16, 20];
-  const pips = [6, 10, 14, 18];
-  let count = 0;
+  const fingers = [
+    [5, 6, 8],
+    [9, 10, 12],
+    [13, 14, 16],
+    [17, 18, 20],
+  ];
+  const palmCenter = averagePoint([landmarks[0], landmarks[5], landmarks[9], landmarks[13], landmarks[17]]);
+  let longFingerCount = 0;
 
-  for (let i = 0; i < tips.length; i += 1) {
-    const tip = landmarks[tips[i]];
-    const pip = landmarks[pips[i]];
-    const wristDistance = distance2D(tip, landmarks[0]);
-    if (tip.y < pip.y - 0.018 && wristDistance > palmSize * 0.82) count += 1;
+  for (const [mcpIndex, pipIndex, tipIndex] of fingers) {
+    const mcp = landmarks[mcpIndex];
+    const pip = landmarks[pipIndex];
+    const tip = landmarks[tipIndex];
+    const tipFromWrist = distance2D(tip, landmarks[0]);
+    const pipFromWrist = distance2D(pip, landmarks[0]);
+    const straightness = jointCosine(mcp, pip, tip);
+    const pointsUp = tip.y < pip.y - palmSize * 0.08;
+    const reachesOut = tipFromWrist > pipFromWrist + palmSize * 0.14;
+    const clearLength = distance2D(tip, mcp) > distance2D(pip, mcp) * 1.28;
+    if ((reachesOut && straightness < -0.18) || (pointsUp && clearLength)) longFingerCount += 1;
   }
 
   const thumbTip = landmarks[4];
   const thumbIp = landmarks[3];
   const thumbMcp = landmarks[2];
-  if (distance2D(thumbTip, thumbMcp) > palmSize * 0.74 && Math.abs(thumbTip.x - thumbIp.x) > 0.035) {
-    count += 1;
+  const thumbStraightness = jointCosine(thumbMcp, thumbIp, thumbTip);
+  const thumbLength = distance2D(thumbTip, thumbMcp);
+  const thumbAwayFromPalm = distance2D(thumbTip, palmCenter) > distance2D(thumbIp, palmCenter) + palmSize * 0.04;
+  const thumbAwayFromIndex = distance2D(thumbTip, landmarks[5]) > palmSize * 0.55;
+  const thumbSideways = Math.abs(thumbTip.x - thumbIp.x) > palmSize * 0.12;
+  const thumbExtended = thumbLength > palmSize * 0.58
+    && thumbStraightness < 0.18
+    && (thumbAwayFromPalm || thumbAwayFromIndex || thumbSideways);
+
+  if (longFingerCount === 4 && (thumbExtended || computeHandOpenness(landmarks) > 0.62)) return 5;
+  return longFingerCount + (thumbExtended ? 1 : 0);
+}
+
+function smoothFingerCount(rawCount) {
+  const now = performance.now();
+  if (rawCount === 5) lastFiveFingerAt = now;
+  if (stableFingerCount === 5 && rawCount >= 3 && now - lastFiveFingerAt < 360) return 5;
+  if (rawCount === stableFingerCount) {
+    pendingFingerCount = rawCount;
+    pendingFingerCountAt = now;
+    return stableFingerCount;
   }
 
-  return count;
+  if (rawCount !== pendingFingerCount) {
+    pendingFingerCount = rawCount;
+    pendingFingerCountAt = now;
+  }
+
+  const delay = rawCount === 5 ? 60 : 110;
+  if (!stableFingerCount || now - pendingFingerCountAt > delay) {
+    stableFingerCount = rawCount;
+  }
+  return stableFingerCount || rawCount;
 }
 
 function computeTwoHandSpread(hands) {
@@ -1208,6 +1252,25 @@ function resize() {
 
 function distance2D(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function averagePoint(points) {
+  const sum = points.reduce((acc, point) => {
+    acc.x += point.x;
+    acc.y += point.y;
+    return acc;
+  }, { x: 0, y: 0 });
+  return { x: sum.x / points.length, y: sum.y / points.length };
+}
+
+function jointCosine(a, b, c) {
+  const bax = a.x - b.x;
+  const bay = a.y - b.y;
+  const bcx = c.x - b.x;
+  const bcy = c.y - b.y;
+  const length = Math.hypot(bax, bay) * Math.hypot(bcx, bcy);
+  if (!length) return 1;
+  return (bax * bcx + bay * bcy) / length;
 }
 
 function rand(min, max) {

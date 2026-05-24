@@ -3,8 +3,7 @@ import * as THREE from "three";
 const PARTICLE_COUNT = 7600;
 const TEXTS = {
   one: "青年才俊",
-  two: "长长久久",
-  gallery: "相册",
+  two: "才智超群",
 };
 const GALLERY_IMAGES = [
   "./assets/gallery/1.jpg",
@@ -57,7 +56,6 @@ const velocity = new Float32Array(PARTICLE_COUNT * 3);
 const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
-  gallery: makeTextTargets(TEXTS.gallery),
 };
 const scatterTargets = makeScatterTargets();
 
@@ -110,16 +108,16 @@ let stableTextBlend = 0;
 let lastTextGestureAt = 0;
 let galleryState = "closed";
 let galleryIndex = 0;
-let lastGalleryGestureAt = 0;
 let lastPhotoSwitchAt = 0;
+let lastGalleryToggleAt = 0;
 
 setActiveShape("one");
 resize();
 window.addEventListener("resize", resize);
 
 textOneButton.addEventListener("click", () => setActiveShape("one", "按钮切换：青年才俊"));
-textTwoButton.addEventListener("click", () => setActiveShape("two", "按钮切换：长长久久"));
-galleryButton.addEventListener("click", () => showGalleryGate("按钮切换：相册"));
+textTwoButton.addEventListener("click", () => setActiveShape("two", "按钮切换：才智超群"));
+galleryButton.addEventListener("click", () => toggleGalleryByButton());
 cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
 galleryPrev.addEventListener("click", () => switchGalleryPhoto(-1));
 galleryNext.addEventListener("click", () => switchGalleryPhoto(1));
@@ -129,9 +127,12 @@ spreadControl.addEventListener("input", () => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (galleryState === "open" && ["1", "2", "3", "4"].includes(event.key)) {
+    showGalleryPhoto(Number(event.key) - 1);
+    return;
+  }
   if (event.key === "1") setActiveShape("one", "键盘 1：青年才俊");
-  if (event.key === "2") setActiveShape("two", "键盘 2：长长久久");
-  if (event.key === "3") showGalleryGate("键盘 3：相册");
+  if (event.key === "2") setActiveShape("two", "键盘 2：才智超群");
   if (event.key === "ArrowLeft" && galleryState === "open") switchGalleryPhoto(-1);
   if (event.key === "ArrowRight" && galleryState === "open") switchGalleryPhoto(1);
 });
@@ -296,9 +297,18 @@ function handleHandResults(results) {
       : fingerCounts.includes(1)
         ? 1
         : fingerCounts[0];
+  const bothPalmsOpen = hands.length >= 2 && fingerCounts.slice(0, 2).every((count) => count >= 5);
+  const now = performance.now();
+
+  if (bothPalmsOpen && now - lastGalleryToggleAt > 1400) {
+    lastGalleryToggleAt = now;
+    if (galleryState === "open") closeGallery();
+    else openGallery();
+    return;
+  }
 
   if (galleryState === "open") {
-    handleGalleryGestures(hands, fingerCounts, handSpread, openness);
+    handleGalleryGestures(primaryCount, handSpread, openness);
     return;
   }
 
@@ -310,21 +320,13 @@ function handleHandResults(results) {
     setActiveShape("two");
     gestureStatus.textContent = "手势 2";
     lastTextGestureAt = performance.now();
-  } else if (primaryCount === 3) {
-    showGalleryGate();
-    gestureStatus.textContent = "手势 3";
-    lastGalleryGestureAt = performance.now();
-    lastTextGestureAt = performance.now();
   } else {
     gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
 
-  const textGestureActive = primaryCount === 1 || primaryCount === 2 || primaryCount === 3;
+  const textGestureActive = primaryCount === 1 || primaryCount === 2;
   targetSpread = Math.max(handSpread, openness * 0.72);
-  if (galleryState === "gate") {
-    targetSpread = handSpread > 0.18 ? THREE.MathUtils.smoothstep(handSpread, 0.18, 0.62) : 0;
-    if (targetSpread > 0.72) openGallery();
-  } else if (textGestureActive) {
+  if (textGestureActive) {
     targetSpread = handSpread > 0.22 ? THREE.MathUtils.smoothstep(handSpread, 0.22, 0.82) : 0;
   }
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
@@ -506,42 +508,34 @@ function makeScatterTargets() {
 }
 
 function setActiveShape(shape, message) {
-  if (galleryState === "open" && shape !== "gallery") return;
-  if (shape !== "gallery" && galleryState !== "open") galleryState = "closed";
+  if (galleryState === "open") return;
+  galleryState = "closed";
   activeShape = shape;
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
-  galleryButton.classList.toggle("active", shape === "gallery");
-  gestureStatus.textContent = shape === "one" ? "手势 1" : shape === "two" ? "手势 2" : "手势 3";
+  galleryButton.classList.remove("active");
+  gestureStatus.textContent = shape === "one" ? "手势 1" : "手势 2";
   if (message) showToast(message);
 }
 
-function showGalleryGate(message) {
-  if (galleryState === "open") return;
-  galleryState = "gate";
-  activeShape = "gallery";
-  targetSpread = 0;
-  lastTextGestureAt = performance.now();
-  lastGalleryGestureAt = performance.now();
-  textOneButton.classList.remove("active");
-  textTwoButton.classList.remove("active");
-  galleryButton.classList.add("active");
-  gestureStatus.textContent = "手势 3";
-  motionStatus.textContent = "进入相册";
-  if (message) showToast(message);
+function toggleGalleryByButton() {
+  if (galleryState === "open") closeGallery();
+  else openGallery();
 }
 
 function openGallery() {
   if (galleryState === "open") return;
   galleryState = "open";
-  activeShape = "gallery";
   targetSpread = 1;
   smoothedSpread = Math.max(smoothedSpread, 0.72);
   gallery.classList.add("open");
   gallery.setAttribute("aria-hidden", "false");
+  textOneButton.classList.remove("active");
+  textTwoButton.classList.remove("active");
+  galleryButton.classList.add("active");
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
-  showToast("已进入相册：左右移动手掌切换照片，双手掌十根手指全部伸出退出。");
+  showToast("已进入相册：手势 1 / 2 / 3 / 4 切换照片，双手掌十根手指全部伸出退出。");
 }
 
 function closeGallery() {
@@ -556,29 +550,27 @@ function closeGallery() {
   showToast("已退出相册。");
 }
 
-function handleGalleryGestures(hands, fingerCounts, handSpread, openness) {
+function handleGalleryGestures(primaryCount, handSpread, openness) {
   gestureStatus.textContent = "相册模式";
   targetSpread = Math.max(handSpread, openness * 0.72);
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
-  const bothPalmsOpen = hands.length >= 2 && fingerCounts.slice(0, 2).every((count) => count >= 5);
-  motionStatus.textContent = bothPalmsOpen ? "退出相册" : "相册";
-
-  if (bothPalmsOpen) {
-    closeGallery();
-    return;
-  }
-
-  const center = computeHandsCenter(hands);
+  motionStatus.textContent = "相册";
   const now = performance.now();
   if (now - lastPhotoSwitchAt < 850) return;
-  if (center.x < 0.34) switchGalleryPhoto(-1);
-  if (center.x > 0.66) switchGalleryPhoto(1);
+  if (primaryCount >= 1 && primaryCount <= 4) showGalleryPhoto(primaryCount - 1);
 }
 
 function switchGalleryPhoto(direction) {
   if (!GALLERY_IMAGES.length) return;
   galleryIndex = (galleryIndex + direction + GALLERY_IMAGES.length) % GALLERY_IMAGES.length;
+  lastPhotoSwitchAt = performance.now();
+  updateGalleryPhoto();
+}
+
+function showGalleryPhoto(index) {
+  if (index < 0 || index >= GALLERY_IMAGES.length || index === galleryIndex) return;
+  galleryIndex = index;
   lastPhotoSwitchAt = performance.now();
   updateGalleryPhoto();
 }

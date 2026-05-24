@@ -15,6 +15,7 @@ const TEXTS = {
   one: "青年才俊",
   two: "苏音唯美，爱泷不悔",
   three: "Silence牛逼克拉斯",
+  five: "五",
 };
 const DEFAULT_IMAGES = [
   "./assets/gallery/1.jpg",
@@ -83,7 +84,7 @@ const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
   three: makeTextTargets(TEXTS.three),
-  float: makeTextTargets(""),
+  five: makeTextTargets(TEXTS.five),
 };
 const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
@@ -337,7 +338,7 @@ function handleHandResults(results) {
   if (primaryCount >= 1 && primaryCount <= 3) {
     setActiveShape(shapeKeyFromNumber(primaryCount));
   } else if (primaryCount === 5) {
-    setActiveShape("float");
+    setActiveShape("five");
   } else {
     gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
@@ -640,9 +641,9 @@ function handleNumberAction(number, messagePrefix = "切换") {
   } else if (number === 4) {
     showToast("手势 4 已删除；打开相册后按钮 4 可切第 4 张照片。");
   } else if (number === 5) {
-    setActiveShape("float", `${messagePrefix}：五根手指漂浮粒子`);
+    setActiveShape("five", `${messagePrefix}：五`);
   } else {
-    showToast("普通模式下手势 1/2/3 切文字，手势 5 是五根手指漂浮粒子。");
+    showToast("普通模式下手势 1/2/3/5 切文字。");
   }
 }
 
@@ -660,7 +661,7 @@ function setActiveShape(shape, message) {
   textTwoButton.classList.toggle("active", shape === "two");
   numberThreeButton.classList.toggle("active", shape === "three");
   numberFourButton.classList.remove("active");
-  numberFiveButton.classList.toggle("active", shape === "float");
+  numberFiveButton.classList.toggle("active", shape === "five");
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
@@ -671,7 +672,7 @@ function setActiveShape(shape, message) {
 }
 
 function numberFromShapeKey(shape) {
-  return { one: 1, two: 2, three: 3, float: 5 }[shape] ?? 1;
+  return { one: 1, two: 2, three: 3, five: 5 }[shape] ?? 1;
 }
 
 function openGallery(folderKey = activeFolderKey) {

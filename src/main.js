@@ -195,7 +195,7 @@ async function setupHands({ force = false } = {}) {
     const trackLabel = stream.getVideoTracks()[0]?.label;
     const name = trackLabel || devices[0]?.label || "摄像头";
     debugStatus.textContent = `设备 ${devices.length || 1}`;
-    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 切文字，两只手进入相册；相册内 1-4 切图，两只手退出。`);
+    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 切文字；点击进入或退出相册，相册内手势 1-4 切图。`);
   } catch (error) {
     cameraStatus.textContent = readableCameraError(error).title;
     gestureStatus.textContent = "手动演示";
@@ -313,21 +313,9 @@ function handleHandResults(results) {
   const handSpread = computeTwoHandSpread(hands);
   const openness = hands.reduce((sum, hand) => sum + computeHandOpenness(hand), 0) / hands.length;
   const primaryCount = [5, 4, 3, 2, 1].find((count) => fingerCounts.includes(count)) ?? fingerCounts[0];
-  const now = performance.now();
 
   if (galleryState === "open") {
-    if (hands.length >= 2 && now - lastGalleryToggleAt > 1000) {
-      lastGalleryToggleAt = now;
-      closeGallery("识别到两只手，退出相册");
-      return;
-    }
     handleGalleryGestures(primaryCount, handSpread, openness);
-    return;
-  }
-
-  if (hands.length >= 2 && now - lastGalleryToggleAt > 1000) {
-    lastGalleryToggleAt = now;
-    openGallery("default");
     return;
   }
 
@@ -604,9 +592,9 @@ function handleNumberAction(number, messagePrefix = "切换") {
   } else if (number === 2) {
     setActiveShape("two", `${messagePrefix}：才智超群`);
   } else if (number === 3) {
-    showToast("现在用两只手进入相册；按钮 3 在相册模式下切第 3 张。");
+    showToast("点击“相册”或“cj”进入相册；按钮 3 在相册模式下切第 3 张。");
   } else {
-    showToast("普通模式下手势 1/2 切文字，两只手进入相册。");
+    showToast("普通模式下手势 1/2 切文字，点击“相册”或“cj”进入相册。");
   }
 }
 
@@ -646,7 +634,7 @@ function openGallery(albumKey = "default") {
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
   updateGalleryPhoto();
-  showToast(activeAlbumKey === "cj" ? "已打开 cj 相册，可以点“上传”加入照片。" : "已进入相册：手势 1 / 2 / 3 / 4 切换照片，两只手退出。");
+  showToast(activeAlbumKey === "cj" ? "已打开 cj 相册，可以点“上传”加入照片。" : "已进入相册：手势 1 / 2 / 3 / 4 或按钮切换照片，点击“退出”离开。");
 }
 
 function closeGallery(message = "已退出相册。") {

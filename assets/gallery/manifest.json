@@ -16,6 +16,24 @@
         "./assets/gallery/cj/cj-20260523-1.jpg",
         "./assets/gallery/cj/cj-20260523-2.jpg"
       ]
+    },
+    "silence": {
+      "title": "Silence",
+      "images": [
+        "./assets/gallery/silence/silence-01-love-happens.jpg",
+        "./assets/gallery/silence/silence-02-love-revive.jpg",
+        "./assets/gallery/silence/silence-03-new-year-1.jpg",
+        "./assets/gallery/silence/silence-04-new-year-2.jpg",
+        "./assets/gallery/silence/silence-05-romance-group.jpeg",
+        "./assets/gallery/silence/silence-06-romance-prequel-1.jpg",
+        "./assets/gallery/silence/silence-07-romance-prequel-3.jpg",
+        "./assets/gallery/silence/silence-08-tomorrow-1.jpg",
+        "./assets/gallery/silence/silence-09-tomorrow-2.jpg",
+        "./assets/gallery/silence/silence-10-tomorrow-3.jpg",
+        "./assets/gallery/silence/silence-11-sunset-5.jpg",
+        "./assets/gallery/silence/silence-12-sunset-6.jpg",
+        "./assets/gallery/silence/silence-13-helicopter.jpg"
+      ]
     }
   }
 }

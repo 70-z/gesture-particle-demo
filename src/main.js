@@ -1,16 +1,29 @@
 import * as THREE from "three";
 
 const PARTICLE_COUNT = 7600;
+const COUNTER_PARTICLES = 2600;
+const CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const TEXTS = {
   one: "青年才俊",
   two: "才智超群",
 };
-const GALLERY_IMAGES = [
+const DEFAULT_IMAGES = [
   "./assets/gallery/1.jpg",
   "./assets/gallery/2.jpg",
   "./assets/gallery/3.jpg",
   "./assets/gallery/4.jpg",
 ];
+
+const albums = {
+  default: {
+    title: "相册",
+    images: DEFAULT_IMAGES,
+  },
+  cj: {
+    title: "cj",
+    images: loadStoredCjImages(),
+  },
+};
 
 const canvas = document.querySelector("#scene");
 const video = document.querySelector("#camera");
@@ -21,12 +34,19 @@ const debugStatus = document.querySelector("#debugStatus");
 const spreadControl = document.querySelector("#spreadControl");
 const textOneButton = document.querySelector("#textOne");
 const textTwoButton = document.querySelector("#textTwo");
-const galleryButton = document.querySelector("#galleryButton");
+const numberThreeButton = document.querySelector("#numberThree");
+const numberFourButton = document.querySelector("#numberFour");
+const exitGalleryButton = document.querySelector("#exitGallery");
+const cjButton = document.querySelector("#cjButton");
+const cjUploadButton = document.querySelector("#cjUploadButton");
+const cjUpload = document.querySelector("#cjUpload");
 const cameraRetryButton = document.querySelector("#cameraRetry");
 const gallery = document.querySelector("#gallery");
 const galleryFrame = document.querySelector(".gallery-frame");
 const galleryImage = document.querySelector("#galleryImage");
+const galleryTitle = document.querySelector("#galleryTitle");
 const galleryCounter = document.querySelector("#galleryCounter");
+const galleryEmpty = document.querySelector("#galleryEmpty");
 const galleryPrev = document.querySelector("#galleryPrev");
 const galleryNext = document.querySelector("#galleryNext");
 const toast = document.querySelector("#toast");
@@ -38,10 +58,10 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: "high-performance",
 });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setClearColor(0x070a12, 1);
+renderer.setClearColor(0x100612, 1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x070a12, 12, 42);
+scene.fog = new THREE.Fog(0x100612, 12, 42);
 
 const camera = new THREE.PerspectiveCamera(56, 1, 0.1, 100);
 camera.position.set(0, 0.55, 16);
@@ -57,21 +77,19 @@ const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
 };
-const galleryTargets = [];
+const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
 let activeTargets = shapeTargets.one;
-let activeColors = null;
 
 for (let i = 0; i < PARTICLE_COUNT; i += 1) {
   const offset = i * 3;
-  const p = scatterTargets[offset] ? scatterTargets : shapeTargets.one;
+  const p = Math.random() > 0.5 ? scatterTargets : shapeTargets.one;
   current[offset] = p[offset] + rand(-1.5, 1.5);
   current[offset + 1] = p[offset + 1] + rand(-1.5, 1.5);
   current[offset + 2] = p[offset + 2] + rand(-1.5, 1.5);
   positionArray[offset] = current[offset];
   positionArray[offset + 1] = current[offset + 1];
   positionArray[offset + 2] = current[offset + 2];
-
   setDefaultParticleColor(i, offset);
 }
 
@@ -80,11 +98,11 @@ geometry.setAttribute("position", new THREE.BufferAttribute(positionArray, 3));
 geometry.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
 
 const material = new THREE.PointsMaterial({
-  size: 0.055,
+  size: 0.06,
   sizeAttenuation: true,
   vertexColors: true,
   transparent: true,
-  opacity: 0.92,
+  opacity: 0.94,
   depthWrite: false,
   blending: THREE.AdditiveBlending,
 });
@@ -93,6 +111,7 @@ const points = new THREE.Points(geometry, material);
 group.add(points);
 
 let activeShape = "one";
+let activeAlbumKey = "default";
 let targetSpread = 0.36;
 let smoothedSpread = targetSpread;
 let hasHands = false;
@@ -113,24 +132,28 @@ setActiveShape("one");
 resize();
 window.addEventListener("resize", resize);
 
-textOneButton.addEventListener("click", () => setActiveShape("one", "按钮切换：青年才俊"));
-textTwoButton.addEventListener("click", () => setActiveShape("two", "按钮切换：才智超群"));
-galleryButton.addEventListener("click", () => toggleGalleryByButton());
+textOneButton.addEventListener("click", () => handleNumberAction(1, "点击 1"));
+textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"));
+numberThreeButton.addEventListener("click", () => handleNumberAction(3, "点击 3"));
+numberFourButton.addEventListener("click", () => handleNumberAction(4, "点击 4"));
+exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
+cjButton.addEventListener("click", () => openGallery("cj"));
+cjUploadButton.addEventListener("click", () => cjUpload.click());
 cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
 galleryPrev.addEventListener("click", () => switchGalleryPhoto(-1));
 galleryNext.addEventListener("click", () => switchGalleryPhoto(1));
+cjUpload.addEventListener("change", handleCjUpload);
 spreadControl.addEventListener("input", () => {
   targetSpread = Number(spreadControl.value) / 100;
   motionStatus.textContent = spreadLabel(targetSpread);
 });
 
 window.addEventListener("keydown", (event) => {
-  if (galleryState === "open" && ["1", "2", "3", "4"].includes(event.key)) {
-    showGalleryPhoto(Number(event.key) - 1);
+  if (["1", "2", "3", "4"].includes(event.key)) {
+    handleNumberAction(Number(event.key), `键盘 ${event.key}`);
     return;
   }
-  if (event.key === "1") setActiveShape("one", "键盘 1：青年才俊");
-  if (event.key === "2") setActiveShape("two", "键盘 2：才智超群");
+  if (event.key === "Escape") closeGallery("键盘退出相册");
   if (event.key === "ArrowLeft" && galleryState === "open") switchGalleryPhoto(-1);
   if (event.key === "ArrowRight" && galleryState === "open") switchGalleryPhoto(1);
 });
@@ -143,11 +166,6 @@ window.addEventListener("pointermove", (event) => {
 });
 
 animate();
-updateGalleryPhoto();
-loadGalleryTargets().catch((error) => {
-  console.warn(error);
-  debugStatus.textContent = "相册加载失败";
-});
 setupHands();
 
 async function setupHands({ force = false } = {}) {
@@ -175,7 +193,7 @@ async function setupHands({ force = false } = {}) {
     const trackLabel = stream.getVideoTracks()[0]?.label;
     const name = trackLabel || devices[0]?.label || "摄像头";
     debugStatus.textContent = `设备 ${devices.length || 1}`;
-    showToast(`摄像头已连接：${name}。双手张合控制扩散，手势 1 / 2 切换文字。`);
+    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 / 3，进入相册后 1-4 切图，双手退出。`);
   } catch (error) {
     cameraStatus.textContent = readableCameraError(error).title;
     gestureStatus.textContent = "手动演示";
@@ -272,7 +290,7 @@ function readableCameraError(error) {
   }
   return {
     title: "连接失败",
-    message: `摄像头连接失败：${message || name || "未知错误"}。可先用键盘 1/2 和鼠标继续演示。`,
+    message: `摄像头连接失败：${message || name || "未知错误"}。可先用页面按钮继续演示。`,
   };
 }
 
@@ -282,7 +300,7 @@ function handleHandResults(results) {
 
   if (!hands.length) {
     if (performance.now() - lastGestureAt > 800) {
-      gestureStatus.textContent = "等待双手";
+      gestureStatus.textContent = galleryState === "open" ? "相册模式" : "等待手势";
       cameraStatus.textContent = "已开启";
     }
     return;
@@ -295,26 +313,23 @@ function handleHandResults(results) {
   const primaryCount = [5, 4, 3, 2, 1].find((count) => fingerCounts.includes(count)) ?? fingerCounts[0];
   const now = performance.now();
 
-  if (hands.length >= 2 && now - lastGalleryToggleAt > 1400) {
-    lastGalleryToggleAt = now;
-    if (galleryState === "open") closeGallery();
-    else openGallery();
-    return;
-  }
-
   if (galleryState === "open") {
+    if (hands.length >= 2 && now - lastGalleryToggleAt > 1000) {
+      lastGalleryToggleAt = now;
+      closeGallery("识别到两只手，退出相册");
+      return;
+    }
     handleGalleryGestures(primaryCount, handSpread, openness);
     return;
   }
 
   if (primaryCount === 1) {
     setActiveShape("one");
-    gestureStatus.textContent = "手势 1";
-    lastTextGestureAt = performance.now();
   } else if (primaryCount === 2) {
     setActiveShape("two");
-    gestureStatus.textContent = "手势 2";
-    lastTextGestureAt = performance.now();
+  } else if (primaryCount === 3) {
+    openGallery("default");
+    return;
   } else {
     gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
@@ -366,20 +381,6 @@ function computeTwoHandSpread(hands) {
   return THREE.MathUtils.clamp((dist - 0.12) / 0.58, 0, 1);
 }
 
-function computeHandsCenter(hands) {
-  let x = 0;
-  let y = 0;
-  let count = 0;
-  for (const hand of hands) {
-    for (const point of hand) {
-      x += point.x;
-      y += point.y;
-      count += 1;
-    }
-  }
-  return count ? { x: x / count, y: y / count } : { x: 0.5, y: 0.5 };
-}
-
 function computeHandOpenness(hand) {
   const palm = distance2D(hand[0], hand[9]) || 0.1;
   const thumbIndex = distance2D(hand[4], hand[8]) / palm;
@@ -393,24 +394,24 @@ function animate() {
   const elapsed = (performance.now() - clockStart) / 1000;
   const gestureRecentlySeen = performance.now() - lastGestureAt < 1200;
   const textGestureRecentlySeen = performance.now() - lastTextGestureAt < 1600;
-  rotationBlend += ((gestureRecentlySeen ? 0 : 1) - rotationBlend) * 0.075;
+  rotationBlend += ((gestureRecentlySeen || galleryState === "open" ? 0 : 1) - rotationBlend) * 0.075;
   const expanding = targetSpread > 0.18;
-  stableTextBlend += ((textGestureRecentlySeen && !expanding ? 1 : 0) - stableTextBlend) * 0.14;
+  const stableTarget = galleryState === "open" ? 0.58 : textGestureRecentlySeen && !expanding ? 1 : 0;
+  stableTextBlend += (stableTarget - stableTextBlend) * 0.14;
   smoothedSpread += (targetSpread - smoothedSpread) * (expanding ? 0.18 : 0.1);
-  const shape = activeTargets;
   const stillness = stableTextBlend;
   const breath = Math.sin(elapsed * 1.4) * 0.05 * (1 - stillness);
   const rawSpread = smoothedSpread + breath;
-  const visualSpread = Math.max(0, rawSpread * (1 - stillness * 0.98));
+  const visualSpread = Math.max(0, rawSpread * (1 - stillness * 0.72));
   const burst = THREE.MathUtils.smoothstep(visualSpread, 0.04, 0.9);
   const twist = visualSpread * THREE.MathUtils.lerp(0.45, 1.15, burst) * (1 - stillness);
   const targetScale = 1 + visualSpread * THREE.MathUtils.lerp(1.15, 2.8, burst);
 
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
     const offset = i * 3;
-    const sx = shape[offset];
-    const sy = shape[offset + 1];
-    const sz = shape[offset + 2];
+    const sx = activeTargets[offset];
+    const sy = activeTargets[offset + 1];
+    const sz = activeTargets[offset + 2];
     const wave = Math.sin(elapsed * 2.2 + i * 0.013) * 0.22 * burst;
     const rx = scatterTargets[offset] * visualSpread * 2.75 + wave;
     const ry = scatterTargets[offset + 1] * visualSpread * 2.05 + Math.cos(elapsed * 1.7 + i * 0.01) * 0.16 * burst;
@@ -436,16 +437,10 @@ function animate() {
     positionArray[offset + 1] = current[offset + 1];
     positionArray[offset + 2] = current[offset + 2];
 
-    if (activeColors) {
-      colorArray[offset] += (activeColors[offset] - colorArray[offset]) * 0.08;
-      colorArray[offset + 1] += (activeColors[offset + 1] - colorArray[offset + 1]) * 0.08;
-      colorArray[offset + 2] += (activeColors[offset + 2] - colorArray[offset + 2]) * 0.08;
-    } else {
-      const color = getDefaultParticleColor(i);
-      colorArray[offset] += (color.r - colorArray[offset]) * 0.08;
-      colorArray[offset + 1] += (color.g - colorArray[offset + 1]) * 0.08;
-      colorArray[offset + 2] += (color.b - colorArray[offset + 2]) * 0.08;
-    }
+    const color = getDefaultParticleColor(i, elapsed);
+    colorArray[offset] += (color.r - colorArray[offset]) * 0.08;
+    colorArray[offset + 1] += (color.g - colorArray[offset + 1]) * 0.08;
+    colorArray[offset + 2] += (color.b - colorArray[offset + 2]) * 0.08;
   }
 
   geometry.attributes.position.needsUpdate = true;
@@ -455,10 +450,14 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-function makeTextTargets(text) {
+function makeTextTargets(text, options = {}) {
   const textCanvas = document.createElement("canvas");
-  const width = 1380;
-  const height = 430;
+  const width = options.width ?? 1380;
+  const height = options.height ?? 430;
+  const scaleX = options.scaleX ?? 13.6;
+  const scaleY = options.scaleY ?? 4.35;
+  const yOffset = options.yOffset ?? 0;
+  const zRange = options.zRange ?? 0.22;
   textCanvas.width = width;
   textCanvas.height = height;
   const ctx = textCanvas.getContext("2d", { willReadFrequently: true });
@@ -467,9 +466,9 @@ function makeTextTargets(text) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  let fontSize = text.length > 5 ? 178 : 220;
+  let fontSize = options.fontSize ?? (text.length > 5 ? 178 : 220);
   ctx.font = `900 ${fontSize}px "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif`;
-  while (ctx.measureText(text).width > width * 0.9 && fontSize > 90) {
+  while (ctx.measureText(text).width > width * 0.9 && fontSize > 64) {
     fontSize -= 8;
     ctx.font = `900 ${fontSize}px "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif`;
   }
@@ -477,17 +476,19 @@ function makeTextTargets(text) {
 
   const image = ctx.getImageData(0, 0, width, height).data;
   const points = [];
-  const step = 5;
+  const step = options.step ?? 5;
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       const alpha = image[(y * width + x) * 4 + 3];
       if (alpha > 80 && Math.random() > 0.1) {
-        const px = (x / width - 0.5) * 13.6;
-        const py = (0.5 - y / height) * 4.35;
-        points.push([px + rand(-0.025, 0.025), py + rand(-0.025, 0.025), rand(-0.22, 0.22)]);
+        const px = (x / width - 0.5) * scaleX;
+        const py = (0.5 - y / height) * scaleY + yOffset;
+        points.push([px + rand(-0.025, 0.025), py + rand(-0.025, 0.025), rand(-zRange, zRange)]);
       }
     }
   }
+
+  if (!points.length) points.push([0, yOffset, 0]);
 
   const targets = new Float32Array(PARTICLE_COUNT * 3);
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
@@ -500,80 +501,68 @@ function makeTextTargets(text) {
   return targets;
 }
 
-async function loadGalleryTargets() {
-  const loaded = await Promise.all(GALLERY_IMAGES.map((url) => makeImageTargets(url)));
-  galleryTargets.splice(0, galleryTargets.length, ...loaded);
-  updateGalleryPhoto();
-}
-
-function makeImageTargets(url) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      const sampleCanvas = document.createElement("canvas");
-      const width = 720;
-      const height = 460;
-      sampleCanvas.width = width;
-      sampleCanvas.height = height;
-      const ctx = sampleCanvas.getContext("2d", { willReadFrequently: true });
-      ctx.fillStyle = "#050812";
-      ctx.fillRect(0, 0, width, height);
-
-      const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
-      const drawWidth = image.naturalWidth * scale;
-      const drawHeight = image.naturalHeight * scale;
-      const dx = (width - drawWidth) / 2;
-      const dy = (height - drawHeight) / 2;
-      ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
-
-      const data = ctx.getImageData(0, 0, width, height).data;
-      const candidates = [];
-      const step = 4;
-      for (let y = 0; y < height; y += step) {
-        for (let x = 0; x < width; x += step) {
-          const index = (y * width + x) * 4;
-          const r = data[index];
-          const g = data[index + 1];
-          const b = data[index + 2];
-          const brightness = (r + g + b) / 765;
-          if (brightness < 0.035) continue;
-          if (Math.random() > Math.max(0.28, brightness)) continue;
-          candidates.push({ x, y, r, g, b, brightness });
-        }
-      }
-
-      const targets = new Float32Array(PARTICLE_COUNT * 3);
-      const colors = new Float32Array(PARTICLE_COUNT * 3);
-      for (let i = 0; i < PARTICLE_COUNT; i += 1) {
-        const point = candidates[i % candidates.length] ?? {
-          x: width / 2,
-          y: height / 2,
-          r: 57,
-          g: 217,
-          b: 255,
-          brightness: 1,
-        };
-        const offset = i * 3;
-        targets[offset] = (point.x / width - 0.5) * 12.4 + rand(-0.018, 0.018);
-        targets[offset + 1] = (0.5 - point.y / height) * 6.25 + rand(-0.018, 0.018);
-        targets[offset + 2] = (point.brightness - 0.5) * 0.85 + rand(-0.12, 0.12);
-        colors[offset] = THREE.MathUtils.clamp(point.r / 255 + 0.05, 0, 1);
-        colors[offset + 1] = THREE.MathUtils.clamp(point.g / 255 + 0.05, 0, 1);
-        colors[offset + 2] = THREE.MathUtils.clamp(point.b / 255 + 0.08, 0, 1);
-      }
-      resolve({ targets, colors });
-    };
-    image.onerror = reject;
-    image.src = url;
+function makeAlbumTargets(label) {
+  if (albumTargetCache.has(label)) return albumTargetCache.get(label);
+  const counter = makeTextTargets(label, {
+    width: 760,
+    height: 240,
+    scaleX: 4.25,
+    scaleY: 1.36,
+    yOffset: -4.38,
+    fontSize: 148,
+    step: 4,
+    zRange: 0.16,
   });
+  const halo = makeAlbumHaloTargets();
+  const targets = new Float32Array(PARTICLE_COUNT * 3);
+
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    const source = i < COUNTER_PARTICLES ? counter : halo;
+    targets[offset] = source[offset];
+    targets[offset + 1] = source[offset + 1];
+    targets[offset + 2] = source[offset + 2];
+  }
+
+  albumTargetCache.set(label, targets);
+  return targets;
 }
 
-function getDefaultParticleColor(i) {
+function makeAlbumHaloTargets() {
+  const targets = new Float32Array(PARTICLE_COUNT * 3);
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    const side = Math.random();
+    const layer = Math.random();
+    let x;
+    let y;
+    if (side < 0.32) {
+      x = rand(-7.4, 7.4);
+      y = rand(2.55, 4.2);
+    } else if (side < 0.64) {
+      x = rand(-7.4, 7.4);
+      y = rand(-2.65, -1.35);
+    } else if (side < 0.82) {
+      x = rand(-7.8, -4.75);
+      y = rand(-1.55, 2.75);
+    } else {
+      x = rand(4.75, 7.8);
+      y = rand(-1.55, 2.75);
+    }
+    targets[offset] = x + Math.sin(layer * Math.PI * 2) * 0.25;
+    targets[offset + 1] = y + Math.cos(layer * Math.PI * 2) * 0.18;
+    targets[offset + 2] = rand(-1.45, 1.45);
+  }
+  return targets;
+}
+
+function getDefaultParticleColor(i, elapsed = 0) {
   const tone = i / PARTICLE_COUNT;
-  const color = new THREE.Color().setHSL(0.53 + tone * 0.22, 0.88, 0.58);
-  color.lerp(new THREE.Color(0xff4f8b), Math.max(0, Math.sin(tone * Math.PI * 2)) * 0.28);
-  return color;
+  const shimmer = (Math.sin(elapsed * 1.8 + i * 0.017) + 1) * 0.5;
+  const hue = THREE.MathUtils.lerp(0.885, 0.965, (tone * 1.7 + shimmer * 0.24) % 1);
+  const saturation = THREE.MathUtils.lerp(0.74, 0.98, shimmer);
+  const lightness = THREE.MathUtils.lerp(0.58, 0.76, Math.sin(tone * Math.PI * 6) * 0.5 + 0.5);
+  return new THREE.Color().setHSL(hue, saturation, lightness);
 }
 
 function setDefaultParticleColor(i, offset) {
@@ -597,98 +586,217 @@ function makeScatterTargets() {
   return targets;
 }
 
+function handleNumberAction(number, messagePrefix = "切换") {
+  if (galleryState === "open") {
+    if (number >= 1 && number <= 4) {
+      showGalleryPhoto(number - 1, `${messagePrefix}：第 ${number} 张`);
+    }
+    return;
+  }
+
+  if (number === 1) {
+    setActiveShape("one", `${messagePrefix}：青年才俊`);
+  } else if (number === 2) {
+    setActiveShape("two", `${messagePrefix}：才智超群`);
+  } else if (number === 3) {
+    openGallery("default");
+  } else {
+    showToast("普通模式下手势 1/2 切文字，手势 3 进入相册。");
+  }
+}
+
 function setActiveShape(shape, message) {
   if (galleryState === "open") return;
   galleryState = "closed";
   activeShape = shape;
   activeTargets = shapeTargets[shape];
-  activeColors = null;
+  lastTextGestureAt = performance.now();
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
-  galleryButton.classList.remove("active");
+  numberThreeButton.classList.remove("active");
+  numberFourButton.classList.remove("active");
+  exitGalleryButton.classList.remove("active");
+  cjButton.classList.remove("active");
   gestureStatus.textContent = shape === "one" ? "手势 1" : "手势 2";
   if (message) showToast(message);
 }
 
-function toggleGalleryByButton() {
-  if (galleryState === "open") closeGallery();
-  else openGallery();
-}
-
-function openGallery() {
-  if (galleryState === "open") return;
+function openGallery(albumKey = "default") {
+  activeAlbumKey = albums[albumKey] ? albumKey : "default";
   galleryState = "open";
-  targetSpread = 1;
-  smoothedSpread = Math.max(smoothedSpread, 0.72);
+  galleryIndex = Math.min(galleryIndex, Math.max(0, getActiveImages().length - 1));
+  targetSpread = 0.32;
+  smoothedSpread = Math.max(smoothedSpread, 0.24);
+  lastGalleryToggleAt = performance.now();
   gallery.classList.add("open");
   gallery.setAttribute("aria-hidden", "false");
   textOneButton.classList.remove("active");
   textTwoButton.classList.remove("active");
-  galleryButton.classList.add("active");
-  applyGalleryTarget(galleryIndex);
+  numberThreeButton.classList.toggle("active", activeAlbumKey === "default");
+  numberFourButton.classList.toggle("active", galleryIndex === 3);
+  exitGalleryButton.classList.add("active");
+  cjButton.classList.toggle("active", activeAlbumKey === "cj");
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
-  showToast("已进入相册：手势 1 / 2 / 3 / 4 切换照片，再次识别到两只手退出。");
+  updateGalleryPhoto();
+  showToast(activeAlbumKey === "cj" ? "已打开 cj 相册，可以点“上传”加入照片。" : "已进入相册：手势 1 / 2 / 3 / 4 切换照片，两只手退出。");
 }
 
-function closeGallery() {
+function closeGallery(message = "已退出相册。") {
   if (galleryState !== "open") return;
   gallery.classList.remove("open");
   gallery.setAttribute("aria-hidden", "true");
   galleryState = "closed";
-  activeColors = null;
-  setActiveShape("one");
+  lastGalleryToggleAt = performance.now();
+  setActiveShape(activeShape || "one");
   targetSpread = 0;
   lastTextGestureAt = performance.now();
   motionStatus.textContent = "收缩";
-  showToast("已退出相册。");
+  showToast(message);
 }
 
 function handleGalleryGestures(primaryCount, handSpread, openness) {
   gestureStatus.textContent = "相册模式";
-  targetSpread = Math.max(handSpread, openness * 0.72);
+  targetSpread = Math.max(0.24, handSpread, openness * 0.62);
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = "相册";
   const now = performance.now();
   if (now - lastPhotoSwitchAt < 850) return;
-  if (primaryCount >= 1 && primaryCount <= 4) showGalleryPhoto(primaryCount - 1);
+  if (primaryCount >= 1 && primaryCount <= 4) showGalleryPhoto(primaryCount - 1, `手势 ${primaryCount}`);
 }
 
 function switchGalleryPhoto(direction) {
-  if (!GALLERY_IMAGES.length) return;
-  galleryIndex = (galleryIndex + direction + GALLERY_IMAGES.length) % GALLERY_IMAGES.length;
-  lastPhotoSwitchAt = performance.now();
-  updateGalleryPhoto();
-}
-
-function showGalleryPhoto(index) {
-  if (index < 0 || index >= GALLERY_IMAGES.length || index === galleryIndex) return;
-  galleryIndex = index;
-  lastPhotoSwitchAt = performance.now();
-  applyGalleryTarget(galleryIndex);
-  updateGalleryPhoto();
-}
-
-function applyGalleryTarget(index) {
-  const target = galleryTargets[index];
-  if (!target) {
-    debugStatus.textContent = "相册加载中";
+  const images = getActiveImages();
+  if (!images.length) {
+    showToast("当前相册还没有照片。");
     return;
   }
-  activeTargets = target.targets;
-  activeColors = target.colors;
-  stableTextBlend = 1;
-  targetSpread = 0;
+  galleryIndex = (galleryIndex + direction + images.length) % images.length;
+  lastPhotoSwitchAt = performance.now();
+  updateGalleryPhoto();
+}
+
+function showGalleryPhoto(index, message) {
+  const images = getActiveImages();
+  if (!images.length) {
+    showToast(activeAlbumKey === "cj" ? "cj 相册还没有照片，点“上传”添加。" : "当前相册还没有照片。");
+    return;
+  }
+  if (index < 0 || index >= images.length) {
+    showToast(`当前相册只有 ${images.length} 张照片。`);
+    return;
+  }
+  if (index === galleryIndex) {
+    updateGalleryPhoto();
+    return;
+  }
+  galleryIndex = index;
+  lastPhotoSwitchAt = performance.now();
+  updateGalleryPhoto();
+  if (message) showToast(message);
 }
 
 function updateGalleryPhoto() {
+  const album = albums[activeAlbumKey];
+  const images = getActiveImages();
+  galleryTitle.textContent = album.title;
   galleryFrame.classList.add("switching");
+
   window.setTimeout(() => {
-    galleryImage.src = GALLERY_IMAGES[galleryIndex];
-    galleryCounter.textContent = `${galleryIndex + 1} / ${GALLERY_IMAGES.length}`;
+  if (images.length) {
+      galleryIndex = THREE.MathUtils.clamp(galleryIndex, 0, images.length - 1);
+      galleryImage.src = images[galleryIndex];
+      galleryImage.alt = `${album.title}照片 ${galleryIndex + 1}`;
+      galleryImage.hidden = false;
+      galleryEmpty.hidden = true;
+      galleryCounter.textContent = `${galleryIndex + 1} / ${images.length}`;
+      activeTargets = makeAlbumTargets(`${galleryIndex + 1}/${images.length}`);
+      updateNumberButtonState();
+    } else {
+      galleryImage.removeAttribute("src");
+      galleryImage.hidden = true;
+      galleryEmpty.hidden = false;
+      galleryCounter.textContent = "0 / 0";
+      activeTargets = makeAlbumTargets("0/0");
+      updateNumberButtonState();
+    }
     galleryFrame.classList.remove("switching");
   }, 120);
+}
+
+function updateNumberButtonState() {
+  const isOpen = galleryState === "open";
+  textOneButton.classList.toggle("active", isOpen && galleryIndex === 0);
+  textTwoButton.classList.toggle("active", isOpen && galleryIndex === 1);
+  numberThreeButton.classList.toggle("active", isOpen && galleryIndex === 2);
+  numberFourButton.classList.toggle("active", isOpen && galleryIndex === 3);
+  exitGalleryButton.classList.toggle("active", isOpen);
+  cjButton.classList.toggle("active", isOpen && activeAlbumKey === "cj");
+}
+
+async function handleCjUpload() {
+  const files = Array.from(cjUpload.files ?? []).filter((file) => file.type.startsWith("image/"));
+  cjUpload.value = "";
+  if (!files.length) return;
+
+  try {
+    debugStatus.textContent = "上传处理中";
+    const compressed = await Promise.all(files.map(compressImageFile));
+    albums.cj.images.push(...compressed);
+    saveStoredCjImages(albums.cj.images);
+    galleryIndex = Math.max(0, albums.cj.images.length - compressed.length);
+    openGallery("cj");
+    updateGalleryPhoto();
+    debugStatus.textContent = `cj ${albums.cj.images.length} 张`;
+    showToast(`已加入 ${compressed.length} 张照片到 cj 相册。`);
+  } catch (error) {
+    console.warn(error);
+    debugStatus.textContent = "上传失败";
+    showToast("照片保存失败，可能是浏览器本地空间不足。可以减少照片数量或换更小的图片。");
+  }
+}
+
+function compressImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      image.onload = () => {
+        const maxSide = 1280;
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const imageCanvas = document.createElement("canvas");
+        imageCanvas.width = width;
+        imageCanvas.height = height;
+        const ctx = imageCanvas.getContext("2d");
+        ctx.drawImage(image, 0, 0, width, height);
+        resolve(imageCanvas.toDataURL("image/jpeg", 0.84));
+      };
+      image.onerror = reject;
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadStoredCjImages() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CJ_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredCjImages(images) {
+  localStorage.setItem(CJ_STORAGE_KEY, JSON.stringify(images));
+}
+
+function getActiveImages() {
+  return albums[activeAlbumKey]?.images ?? [];
 }
 
 function spreadLabel(value) {

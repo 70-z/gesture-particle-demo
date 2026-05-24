@@ -3,13 +3,13 @@
   font-family:
     "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", system-ui,
     sans-serif;
-  --paper: #f7fbff;
-  --ink: #0b1220;
-  --panel: rgba(8, 14, 25, 0.62);
+  --paper: #fff7fb;
+  --ink: #210817;
+  --panel: rgba(29, 7, 22, 0.64);
   --line: rgba(255, 255, 255, 0.18);
-  --cyan: #39d9ff;
-  --rose: #ff4f8b;
-  --green: #63f0a5;
+  --pink: #ff5da8;
+  --rose: #ff8ac6;
+  --deep: #bf2f74;
 }
 
 * {
@@ -23,7 +23,7 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #070a12;
+  background: #100612;
 }
 
 body {
@@ -56,7 +56,7 @@ body {
   border-radius: 8px;
   transform: scaleX(-1);
   opacity: 0.72;
-  background: #111827;
+  background: #201020;
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.42);
 }
 
@@ -98,8 +98,8 @@ body {
   border-radius: 50%;
   background:
     radial-gradient(circle at 68% 34%, #ffffff 0 9%, transparent 10%),
-    conic-gradient(from 210deg, var(--cyan), var(--green), var(--rose), var(--cyan));
-  box-shadow: 0 0 28px rgba(57, 217, 255, 0.52);
+    conic-gradient(from 210deg, #ffabd5, var(--pink), var(--deep), var(--rose), #ffabd5);
+  box-shadow: 0 0 28px rgba(255, 93, 168, 0.52);
   flex: 0 0 auto;
 }
 
@@ -143,6 +143,7 @@ body {
   z-index: 3;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px;
   border-radius: 8px;
@@ -162,8 +163,8 @@ body {
 
 .control-panel button.active,
 .control-panel button:hover {
-  border-color: rgba(57, 217, 255, 0.72);
-  background: rgba(57, 217, 255, 0.18);
+  border-color: rgba(255, 138, 198, 0.76);
+  background: rgba(255, 93, 168, 0.2);
 }
 
 .control-panel label {
@@ -176,7 +177,15 @@ body {
 .control-panel input {
   width: min(22vw, 180px);
   min-width: 116px;
-  accent-color: var(--cyan);
+  accent-color: var(--pink);
+}
+
+.upload-input {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .gallery {
@@ -186,8 +195,8 @@ body {
   display: block;
   padding: 0;
   background:
-    radial-gradient(circle at 50% 45%, rgba(57, 217, 255, 0.08), transparent 42%),
-    rgba(7, 10, 18, 0.18);
+    radial-gradient(circle at 50% 44%, rgba(255, 93, 168, 0.18), transparent 43%),
+    rgba(16, 6, 18, 0.22);
   opacity: 0;
   transform: scale(1.025);
   transition:
@@ -205,12 +214,12 @@ body {
 .gallery-frame {
   position: fixed;
   left: 50%;
-  bottom: 92px;
+  top: 50%;
   z-index: 4;
-  width: min(260px, calc(100vw - 32px));
-  height: auto;
+  width: min(54vw, 700px);
+  height: min(56vh, 520px);
   margin: 0;
-  transform: translateX(-50%);
+  transform: translate(-50%, -44%);
   overflow: visible;
   border: 0;
   background: transparent;
@@ -218,24 +227,41 @@ body {
 }
 
 .gallery-frame img {
-  display: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: 1px solid rgba(255, 174, 216, 0.32);
+  border-radius: 8px;
+  background: rgba(20, 6, 18, 0.52);
+  box-shadow:
+    0 28px 92px rgba(0, 0, 0, 0.46),
+    0 0 80px rgba(255, 93, 168, 0.16);
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease;
 }
 
 .gallery-frame.switching img {
   opacity: 0;
+  transform: scale(0.985);
 }
 
 .gallery-frame figcaption {
-  position: static;
+  position: absolute;
+  left: 50%;
+  bottom: -56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-width: min(260px, 80vw);
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(5, 8, 15, 0.58);
+  background: rgba(28, 7, 22, 0.66);
   backdrop-filter: blur(14px);
-  color: rgba(247, 251, 255, 0.9);
+  color: rgba(255, 247, 251, 0.92);
+  transform: translateX(-50%);
 }
 
 .gallery-frame figcaption strong,
@@ -243,6 +269,28 @@ body {
   font-size: 14px;
   line-height: 1;
   letter-spacing: 0;
+}
+
+#galleryEmpty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border: 1px solid rgba(255, 174, 216, 0.32);
+  border-radius: 8px;
+  background: rgba(20, 6, 18, 0.52);
+  color: rgba(255, 247, 251, 0.88);
+  font: 800 54px / 1 "Microsoft YaHei UI", system-ui, sans-serif;
+  letter-spacing: 0;
+  box-shadow:
+    0 28px 92px rgba(0, 0, 0, 0.46),
+    0 0 80px rgba(255, 93, 168, 0.16);
+}
+
+#galleryEmpty[hidden],
+.gallery-frame img[hidden] {
+  display: none;
 }
 
 .gallery-nav {
@@ -260,14 +308,14 @@ body {
 }
 
 .gallery-nav:hover {
-  border-color: rgba(57, 217, 255, 0.72);
-  background: rgba(57, 217, 255, 0.16);
+  border-color: rgba(255, 138, 198, 0.76);
+  background: rgba(255, 93, 168, 0.18);
 }
 
 #toast {
   position: fixed;
   left: 50%;
-  bottom: 88px;
+  bottom: 122px;
   z-index: 4;
   max-width: min(560px, calc(100vw - 32px));
   padding: 12px 15px;
@@ -312,8 +360,9 @@ body {
   }
 
   .gallery-frame {
-    width: min(220px, calc(100vw - 28px));
-    bottom: 76px;
+    width: calc(100vw - 30px);
+    height: min(48vh, 430px);
+    top: 48%;
   }
 
   .gallery-nav {
@@ -326,13 +375,25 @@ body {
     left: 12px;
     right: 12px;
     bottom: 12px;
+    gap: 8px;
+  }
+
+  .control-panel button {
+    flex: 0 0 auto;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 10px;
   }
 
   .control-panel label {
-    flex: 1;
+    flex: 1 1 130px;
   }
 
   .control-panel input {
     width: 100%;
+  }
+
+  #toast {
+    bottom: 128px;
   }
 }

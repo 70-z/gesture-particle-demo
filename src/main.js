@@ -41,6 +41,7 @@ const newFolderButton = document.querySelector("#newFolderButton");
 const folderSelect = document.querySelector("#folderSelect");
 const authButton = document.querySelector("#authButton");
 const cjUploadButton = document.querySelector("#cjUploadButton");
+const deletePhotoButton = document.querySelector("#deletePhotoButton");
 const cjUpload = document.querySelector("#cjUpload");
 const cameraRetryButton = document.querySelector("#cameraRetry");
 const gallery = document.querySelector("#gallery");
@@ -144,6 +145,7 @@ defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey
 newFolderButton.addEventListener("click", createFolder);
 authButton.addEventListener("click", configureGithubToken);
 cjUploadButton.addEventListener("click", () => cjUpload.click());
+deletePhotoButton.addEventListener("click", deleteCurrentPhoto);
 cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
 galleryPrev.addEventListener("click", () => switchGalleryPhoto(-1));
 galleryNext.addEventListener("click", () => switchGalleryPhoto(1));
@@ -620,6 +622,7 @@ function setActiveShape(shape, message) {
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
   authButton.classList.toggle("active", hasGithubToken());
+  deletePhotoButton.classList.remove("active");
   gestureStatus.textContent = shape === "one" ? "手势 1" : "手势 2";
   if (message) showToast(message);
 }
@@ -738,6 +741,7 @@ function updateNumberButtonState() {
   numberFourButton.classList.toggle("active", isOpen && galleryIndex === 3);
   exitGalleryButton.classList.toggle("active", isOpen);
   defaultGalleryButton.classList.toggle("active", isOpen);
+  deletePhotoButton.classList.toggle("active", isOpen && getActiveImages().length > 0);
 }
 
 async function handleCjUpload() {
@@ -769,6 +773,47 @@ async function handleCjUpload() {
     console.warn(error);
     debugStatus.textContent = "上传失败";
     showToast(`上传失败：${error.message || "请检查 GitHub 授权和网络"}`);
+  }
+}
+
+async function deleteCurrentPhoto() {
+  if (galleryState !== "open") {
+    showToast("请先打开相册。");
+    return;
+  }
+
+  const images = getActiveImages();
+  if (!images.length) {
+    showToast("当前文件夹没有照片可删除。");
+    return;
+  }
+
+  const folder = folders[activeFolderKey];
+  const photoUrl = images[galleryIndex];
+  const ok = window.confirm(`确定删除 ${folder.title} 文件夹里的第 ${galleryIndex + 1} 张照片吗？`);
+  if (!ok) return;
+
+  const token = await requireGithubToken();
+  if (!token) return;
+
+  try {
+    debugStatus.textContent = "删除处理中";
+    const repoPath = toRepoPath(photoUrl);
+    images.splice(galleryIndex, 1);
+    galleryIndex = Math.min(galleryIndex, Math.max(0, images.length - 1));
+
+    if (repoPath && repoPath.startsWith(`assets/gallery/${activeFolderKey}/`)) {
+      await deleteGithubFile(repoPath, `Delete ${folder.title} photo`, token);
+    }
+    await saveFoldersEverywhere(`Update ${folder.title} album after delete`, token);
+    renderFolderControls();
+    updateGalleryPhoto();
+    debugStatus.textContent = `${folder.title} ${images.length} 张`;
+    showToast("已删除，其他设备稍后刷新即可同步。");
+  } catch (error) {
+    console.warn(error);
+    showToast(`删除失败：${error.message || "请检查 GitHub 授权和网络"}`);
+    await loadRemoteFolders();
   }
 }
 
@@ -848,6 +893,32 @@ async function putGithubFile(path, contentBase64, message, token) {
   return response.json();
 }
 
+async function deleteGithubFile(path, message, token) {
+  const existing = await getGithubFile(path, token);
+  if (!existing?.sha) return null;
+
+  const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponentPath(path)}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: JSON.stringify({
+      message,
+      sha: existing.sha,
+      branch: GITHUB_BRANCH,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GitHub 删除失败 ${response.status}: ${text.slice(0, 120)}`);
+  }
+  return response.json();
+}
+
 async function getGithubFile(path, token) {
   const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponentPath(path)}?ref=${GITHUB_BRANCH}`, {
     headers: {
@@ -901,6 +972,17 @@ function makeUploadFileName(file) {
 
 function encodeURIComponentPath(path) {
   return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function toRepoPath(url) {
+  if (!url || url.startsWith("data:")) return "";
+  try {
+    const parsed = new URL(url, window.location.href);
+    const path = parsed.pathname.replace(/^\/gesture-particle-demo\//, "").replace(/^\//, "");
+    return path;
+  } catch {
+    return url.replace(/^\.\//, "");
+  }
 }
 
 function utf8ToBase64(text) {

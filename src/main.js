@@ -57,7 +57,10 @@ const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
 };
+const galleryTargets = [];
 const scatterTargets = makeScatterTargets();
+let activeTargets = shapeTargets.one;
+let activeColors = null;
 
 for (let i = 0; i < PARTICLE_COUNT; i += 1) {
   const offset = i * 3;
@@ -69,12 +72,7 @@ for (let i = 0; i < PARTICLE_COUNT; i += 1) {
   positionArray[offset + 1] = current[offset + 1];
   positionArray[offset + 2] = current[offset + 2];
 
-  const tone = i / PARTICLE_COUNT;
-  const color = new THREE.Color().setHSL(0.53 + tone * 0.22, 0.88, 0.58);
-  color.lerp(new THREE.Color(0xff4f8b), Math.max(0, Math.sin(tone * Math.PI * 2)) * 0.28);
-  colorArray[offset] = color.r;
-  colorArray[offset + 1] = color.g;
-  colorArray[offset + 2] = color.b;
+  setDefaultParticleColor(i, offset);
 }
 
 const geometry = new THREE.BufferGeometry();
@@ -146,6 +144,10 @@ window.addEventListener("pointermove", (event) => {
 
 animate();
 updateGalleryPhoto();
+loadGalleryTargets().catch((error) => {
+  console.warn(error);
+  debugStatus.textContent = "相册加载失败";
+});
 setupHands();
 
 async function setupHands({ force = false } = {}) {
@@ -394,7 +396,7 @@ function animate() {
   const expanding = targetSpread > 0.18;
   stableTextBlend += ((textGestureRecentlySeen && !expanding ? 1 : 0) - stableTextBlend) * 0.14;
   smoothedSpread += (targetSpread - smoothedSpread) * (expanding ? 0.18 : 0.1);
-  const shape = shapeTargets[activeShape];
+  const shape = activeTargets;
   const stillness = stableTextBlend;
   const breath = Math.sin(elapsed * 1.4) * 0.05 * (1 - stillness);
   const rawSpread = smoothedSpread + breath;
@@ -432,9 +434,21 @@ function animate() {
     positionArray[offset] = current[offset];
     positionArray[offset + 1] = current[offset + 1];
     positionArray[offset + 2] = current[offset + 2];
+
+    if (activeColors) {
+      colorArray[offset] += (activeColors[offset] - colorArray[offset]) * 0.08;
+      colorArray[offset + 1] += (activeColors[offset + 1] - colorArray[offset + 1]) * 0.08;
+      colorArray[offset + 2] += (activeColors[offset + 2] - colorArray[offset + 2]) * 0.08;
+    } else {
+      const color = getDefaultParticleColor(i);
+      colorArray[offset] += (color.r - colorArray[offset]) * 0.08;
+      colorArray[offset + 1] += (color.g - colorArray[offset + 1]) * 0.08;
+      colorArray[offset + 2] += (color.b - colorArray[offset + 2]) * 0.08;
+    }
   }
 
   geometry.attributes.position.needsUpdate = true;
+  geometry.attributes.color.needsUpdate = true;
   group.rotation.y = Math.sin(elapsed * 0.32) * 0.12 * rotationBlend * (1 - stableTextBlend);
   group.rotation.x = Math.sin(elapsed * 0.23) * 0.045 * rotationBlend * (1 - stableTextBlend);
   renderer.render(scene, camera);
@@ -485,6 +499,89 @@ function makeTextTargets(text) {
   return targets;
 }
 
+async function loadGalleryTargets() {
+  const loaded = await Promise.all(GALLERY_IMAGES.map((url) => makeImageTargets(url)));
+  galleryTargets.splice(0, galleryTargets.length, ...loaded);
+  updateGalleryPhoto();
+}
+
+function makeImageTargets(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      const sampleCanvas = document.createElement("canvas");
+      const width = 720;
+      const height = 460;
+      sampleCanvas.width = width;
+      sampleCanvas.height = height;
+      const ctx = sampleCanvas.getContext("2d", { willReadFrequently: true });
+      ctx.fillStyle = "#050812";
+      ctx.fillRect(0, 0, width, height);
+
+      const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+      const drawWidth = image.naturalWidth * scale;
+      const drawHeight = image.naturalHeight * scale;
+      const dx = (width - drawWidth) / 2;
+      const dy = (height - drawHeight) / 2;
+      ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+
+      const data = ctx.getImageData(0, 0, width, height).data;
+      const candidates = [];
+      const step = 4;
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          const index = (y * width + x) * 4;
+          const r = data[index];
+          const g = data[index + 1];
+          const b = data[index + 2];
+          const brightness = (r + g + b) / 765;
+          if (brightness < 0.035) continue;
+          if (Math.random() > Math.max(0.28, brightness)) continue;
+          candidates.push({ x, y, r, g, b, brightness });
+        }
+      }
+
+      const targets = new Float32Array(PARTICLE_COUNT * 3);
+      const colors = new Float32Array(PARTICLE_COUNT * 3);
+      for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+        const point = candidates[i % candidates.length] ?? {
+          x: width / 2,
+          y: height / 2,
+          r: 57,
+          g: 217,
+          b: 255,
+          brightness: 1,
+        };
+        const offset = i * 3;
+        targets[offset] = (point.x / width - 0.5) * 12.4 + rand(-0.018, 0.018);
+        targets[offset + 1] = (0.5 - point.y / height) * 6.25 + rand(-0.018, 0.018);
+        targets[offset + 2] = (point.brightness - 0.5) * 0.85 + rand(-0.12, 0.12);
+        colors[offset] = THREE.MathUtils.clamp(point.r / 255 + 0.05, 0, 1);
+        colors[offset + 1] = THREE.MathUtils.clamp(point.g / 255 + 0.05, 0, 1);
+        colors[offset + 2] = THREE.MathUtils.clamp(point.b / 255 + 0.08, 0, 1);
+      }
+      resolve({ targets, colors });
+    };
+    image.onerror = reject;
+    image.src = url;
+  });
+}
+
+function getDefaultParticleColor(i) {
+  const tone = i / PARTICLE_COUNT;
+  const color = new THREE.Color().setHSL(0.53 + tone * 0.22, 0.88, 0.58);
+  color.lerp(new THREE.Color(0xff4f8b), Math.max(0, Math.sin(tone * Math.PI * 2)) * 0.28);
+  return color;
+}
+
+function setDefaultParticleColor(i, offset) {
+  const color = getDefaultParticleColor(i);
+  colorArray[offset] = color.r;
+  colorArray[offset + 1] = color.g;
+  colorArray[offset + 2] = color.b;
+}
+
 function makeScatterTargets() {
   const targets = new Float32Array(PARTICLE_COUNT * 3);
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
@@ -503,6 +600,8 @@ function setActiveShape(shape, message) {
   if (galleryState === "open") return;
   galleryState = "closed";
   activeShape = shape;
+  activeTargets = shapeTargets[shape];
+  activeColors = null;
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
   galleryButton.classList.remove("active");
@@ -525,6 +624,7 @@ function openGallery() {
   textOneButton.classList.remove("active");
   textTwoButton.classList.remove("active");
   galleryButton.classList.add("active");
+  applyGalleryTarget(galleryIndex);
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
   showToast("已进入相册：手势 1 / 2 / 3 / 4 切换照片，手势 5 退出。");
@@ -535,6 +635,7 @@ function closeGallery() {
   gallery.classList.remove("open");
   gallery.setAttribute("aria-hidden", "true");
   galleryState = "closed";
+  activeColors = null;
   setActiveShape("one");
   targetSpread = 0;
   lastTextGestureAt = performance.now();
@@ -569,7 +670,20 @@ function showGalleryPhoto(index) {
   if (index < 0 || index >= GALLERY_IMAGES.length || index === galleryIndex) return;
   galleryIndex = index;
   lastPhotoSwitchAt = performance.now();
+  applyGalleryTarget(galleryIndex);
   updateGalleryPhoto();
+}
+
+function applyGalleryTarget(index) {
+  const target = galleryTargets[index];
+  if (!target) {
+    debugStatus.textContent = "相册加载中";
+    return;
+  }
+  activeTargets = target.targets;
+  activeColors = target.colors;
+  stableTextBlend = 1;
+  targetSpread = 0;
 }
 
 function updateGalleryPhoto() {

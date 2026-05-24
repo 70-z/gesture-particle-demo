@@ -26,7 +26,7 @@
 - 点击“上传”可把本机照片加入选中的文件夹。
 - 点击“删除”可删除当前文件夹正在显示的照片，并同步更新 GitHub 相册清单。
 - 为保证多设备可见，新建文件夹和上传照片会写入 GitHub 仓库。
-- 第一次上传前点击“授权”，填写 GitHub fine-grained token，权限需要 Contents: Read and write，范围选择 70-z/gesture-particle-demo 仓库。
+- 第一次上传前点击“授权”，填写 GitHub fine-grained token，权限需要 Contents: Read and write，范围选择 70-z/qingniancaijun 仓库。
 - 授权只保存在当前浏览器本地，不会写进代码仓库。
 - 上传成功后，其他设备刷新 GitHub Pages 公网页面即可看到。
 

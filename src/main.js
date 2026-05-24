@@ -8,7 +8,7 @@ const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const DEFAULT_FOLDER_KEY = "20260509";
 const CJ_FOLDER_KEY = "cj";
 const GITHUB_OWNER = "70-z";
-const GITHUB_REPO = "gesture-particle-demo";
+const GITHUB_REPO = "qingniancaijun";
 const GITHUB_BRANCH = "main";
 const MANIFEST_PATH = "assets/gallery/manifest.json";
 const TEXTS = {
@@ -978,7 +978,7 @@ function toRepoPath(url) {
   if (!url || url.startsWith("data:")) return "";
   try {
     const parsed = new URL(url, window.location.href);
-    const path = parsed.pathname.replace(/^\/gesture-particle-demo\//, "").replace(/^\//, "");
+    const path = parsed.pathname.replace(/^\/(?:gesture-particle-demo|qingniancaijun)\//, "").replace(/^\//, "");
     return path;
   } catch {
     return url.replace(/^\.\//, "");

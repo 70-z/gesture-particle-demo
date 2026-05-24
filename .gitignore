@@ -1,0 +1,7 @@
+.edge-camera-debug/
+.edge-camera-profile/
+.edge-camera-profile2/
+cloudflared.exe
+*.log
+particle-preview.png
+

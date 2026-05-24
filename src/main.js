@@ -2,8 +2,8 @@ import * as THREE from "three";
 
 const PARTICLE_COUNT = 7600;
 const TEXTS = {
-  one: "欢迎报考",
-  two: "西安工业大学",
+  one: "青年才俊",
+  two: "长长久久",
 };
 
 const canvas = document.querySelector("#scene");
@@ -98,8 +98,8 @@ setActiveShape("one");
 resize();
 window.addEventListener("resize", resize);
 
-textOneButton.addEventListener("click", () => setActiveShape("one", "按钮切换：欢迎报考"));
-textTwoButton.addEventListener("click", () => setActiveShape("two", "按钮切换：西安工业大学"));
+textOneButton.addEventListener("click", () => setActiveShape("one", "按钮切换：青年才俊"));
+textTwoButton.addEventListener("click", () => setActiveShape("two", "按钮切换：长长久久"));
 cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
 spreadControl.addEventListener("input", () => {
   targetSpread = Number(spreadControl.value) / 100;
@@ -107,8 +107,8 @@ spreadControl.addEventListener("input", () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "1") setActiveShape("one", "键盘 1：欢迎报考");
-  if (event.key === "2") setActiveShape("two", "键盘 2：西安工业大学");
+  if (event.key === "1") setActiveShape("one", "键盘 1：青年才俊");
+  if (event.key === "2") setActiveShape("two", "键盘 2：长长久久");
 });
 
 window.addEventListener("pointermove", (event) => {

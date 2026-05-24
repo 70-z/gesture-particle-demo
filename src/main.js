@@ -15,7 +15,6 @@ const TEXTS = {
   one: "青年才俊",
   two: "苏音唯美，爱泷不悔",
   three: "Silence牛逼克拉斯",
-  five: "五",
 };
 const DEFAULT_IMAGES = [
   "./assets/gallery/1.jpg",
@@ -37,7 +36,6 @@ const textOneButton = document.querySelector("#textOne");
 const textTwoButton = document.querySelector("#textTwo");
 const numberThreeButton = document.querySelector("#numberThree");
 const numberFourButton = document.querySelector("#numberFour");
-const numberFiveButton = document.querySelector("#numberFive");
 const exitGalleryButton = document.querySelector("#exitGallery");
 const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
 const newFolderButton = document.querySelector("#newFolderButton");
@@ -84,7 +82,6 @@ const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
   three: makeTextTargets(TEXTS.three),
-  five: makeTextTargets(TEXTS.five),
 };
 const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
@@ -149,7 +146,6 @@ textOneButton.addEventListener("click", () => handleNumberAction(1, "点击 1"))
 textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"));
 numberThreeButton.addEventListener("click", () => handleNumberAction(3, "点击 3"));
 numberFourButton.addEventListener("click", () => handleNumberAction(4, "点击 4"));
-numberFiveButton.addEventListener("click", () => handleNumberAction(5, "点击 5"));
 exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
 defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey));
 newFolderButton.addEventListener("click", createFolder);
@@ -169,7 +165,7 @@ spreadControl.addEventListener("input", () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (["1", "2", "3", "4", "5"].includes(event.key)) {
+  if (["1", "2", "3", "4"].includes(event.key)) {
     handleNumberAction(Number(event.key), `键盘 ${event.key}`);
     return;
   }
@@ -342,13 +338,11 @@ function handleHandResults(results) {
 
   if (primaryCount >= 1 && primaryCount <= 3) {
     setActiveShape(shapeKeyFromNumber(primaryCount));
-  } else if (primaryCount === 5) {
-    setActiveShape("five");
   } else {
     gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
 
-  const textGestureActive = (primaryCount >= 1 && primaryCount <= 3) || primaryCount === 5;
+  const textGestureActive = primaryCount >= 1 && primaryCount <= 3;
   targetSpread = Math.max(handSpread, openness * 0.72);
   if (textGestureActive) {
     targetSpread = handSpread > 0.22 ? THREE.MathUtils.smoothstep(handSpread, 0.22, 0.82) : 0;
@@ -684,10 +678,8 @@ function handleNumberAction(number, messagePrefix = "切换") {
     setActiveShape(shape, `${messagePrefix}：${TEXTS[shape]}`);
   } else if (number === 4) {
     showToast("手势 4 已删除；打开相册后按钮 4 可切第 4 张照片。");
-  } else if (number === 5) {
-    setActiveShape("five", `${messagePrefix}：五`);
   } else {
-    showToast("普通模式下手势 1/2/3/5 切文字。");
+    showToast("普通模式下手势 1/2/3 切文字。");
   }
 }
 
@@ -705,7 +697,6 @@ function setActiveShape(shape, message) {
   textTwoButton.classList.toggle("active", shape === "two");
   numberThreeButton.classList.toggle("active", shape === "three");
   numberFourButton.classList.remove("active");
-  numberFiveButton.classList.toggle("active", shape === "five");
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
@@ -716,7 +707,7 @@ function setActiveShape(shape, message) {
 }
 
 function numberFromShapeKey(shape) {
-  return { one: 1, two: 2, three: 3, five: 5 }[shape] ?? 1;
+  return { one: 1, two: 2, three: 3 }[shape] ?? 1;
 }
 
 function openGallery(folderKey = activeFolderKey) {
@@ -732,7 +723,6 @@ function openGallery(folderKey = activeFolderKey) {
   textTwoButton.classList.remove("active");
   numberThreeButton.classList.remove("active");
   numberFourButton.classList.toggle("active", galleryIndex === 3);
-  numberFiveButton.classList.remove("active");
   exitGalleryButton.classList.add("active");
   defaultGalleryButton.classList.add("active");
   motionStatus.textContent = "相册";
@@ -832,7 +822,6 @@ function updateNumberButtonState() {
   textTwoButton.classList.toggle("active", isOpen && galleryIndex === 1);
   numberThreeButton.classList.toggle("active", isOpen && galleryIndex === 2);
   numberFourButton.classList.toggle("active", isOpen && galleryIndex === 3);
-  numberFiveButton.classList.remove("active");
   exitGalleryButton.classList.toggle("active", isOpen);
   defaultGalleryButton.classList.toggle("active", isOpen);
   deletePhotoButton.classList.toggle("active", isOpen && getActiveImages().length > 0);

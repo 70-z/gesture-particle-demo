@@ -12,7 +12,10 @@
     },
     "cj": {
       "title": "cj",
-      "images": []
+      "images": [
+        "./assets/gallery/cj/cj-20260523-1.jpg",
+        "./assets/gallery/cj/cj-20260523-2.jpg"
+      ]
     }
   }
 }

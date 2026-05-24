@@ -3,9 +3,14 @@ import * as THREE from "three";
 const PARTICLE_COUNT = 11200;
 const COUNTER_PARTICLES = 3400;
 const ALBUM_STORAGE_KEY = "gestureParticleAlbumFolders";
+const GITHUB_TOKEN_KEY = "gestureParticleGithubToken";
 const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const DEFAULT_FOLDER_KEY = "20260509";
 const CJ_FOLDER_KEY = "cj";
+const GITHUB_OWNER = "70-z";
+const GITHUB_REPO = "gesture-particle-demo";
+const GITHUB_BRANCH = "main";
+const MANIFEST_PATH = "assets/gallery/manifest.json";
 const TEXTS = {
   one: "青年才俊",
   two: "才智超群",
@@ -34,6 +39,7 @@ const exitGalleryButton = document.querySelector("#exitGallery");
 const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
 const newFolderButton = document.querySelector("#newFolderButton");
 const folderSelect = document.querySelector("#folderSelect");
+const authButton = document.querySelector("#authButton");
 const cjUploadButton = document.querySelector("#cjUploadButton");
 const cjUpload = document.querySelector("#cjUpload");
 const cameraRetryButton = document.querySelector("#cameraRetry");
@@ -136,6 +142,7 @@ numberFourButton.addEventListener("click", () => handleNumberAction(4, "点击 4
 exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
 defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey));
 newFolderButton.addEventListener("click", createFolder);
+authButton.addEventListener("click", configureGithubToken);
 cjUploadButton.addEventListener("click", () => cjUpload.click());
 cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
 galleryPrev.addEventListener("click", () => switchGalleryPhoto(-1));
@@ -168,6 +175,7 @@ window.addEventListener("pointermove", (event) => {
 
 animate();
 renderFolderControls();
+loadRemoteFolders();
 setupHands();
 
 async function setupHands({ force = false } = {}) {
@@ -611,6 +619,7 @@ function setActiveShape(shape, message) {
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
+  authButton.classList.toggle("active", hasGithubToken());
   gestureStatus.textContent = shape === "one" ? "手势 1" : "手势 2";
   if (message) showToast(message);
 }
@@ -736,22 +745,166 @@ async function handleCjUpload() {
   cjUpload.value = "";
   if (!files.length) return;
   const targetKey = folders[folderSelect.value] ? folderSelect.value : activeFolderKey;
+  const token = await requireGithubToken();
+  if (!token) return;
 
   try {
     debugStatus.textContent = "上传处理中";
-    const compressed = await Promise.all(files.map(compressImageFile));
-    folders[targetKey].images.push(...compressed);
-    saveStoredFolders();
-    galleryIndex = Math.max(0, folders[targetKey].images.length - compressed.length);
+    const uploaded = [];
+    for (const file of files) {
+      const compressed = await compressImageFile(file);
+      const fileName = makeUploadFileName(file);
+      const repoPath = `assets/gallery/${targetKey}/${fileName}`;
+      await putGithubFile(repoPath, compressed.base64, `Upload ${fileName}`, token);
+      uploaded.push(`./${repoPath}`);
+    }
+    folders[targetKey].images.push(...uploaded);
+    await saveFoldersEverywhere(`Update ${folders[targetKey].title} album`, token);
+    galleryIndex = Math.max(0, folders[targetKey].images.length - uploaded.length);
     openGallery(targetKey);
     updateGalleryPhoto();
     debugStatus.textContent = `${folders[targetKey].title} ${folders[targetKey].images.length} 张`;
-    showToast(`已加入 ${compressed.length} 张照片到 ${folders[targetKey].title} 文件夹。`);
+    showToast(`已上传 ${uploaded.length} 张照片到 ${folders[targetKey].title}，其他设备稍后刷新即可看到。`);
   } catch (error) {
     console.warn(error);
     debugStatus.textContent = "上传失败";
-    showToast("照片保存失败，可能是浏览器本地空间不足。可以减少照片数量或换更小的图片。");
+    showToast(`上传失败：${error.message || "请检查 GitHub 授权和网络"}`);
   }
+}
+
+async function loadRemoteFolders() {
+  try {
+    const response = await fetch(`./${MANIFEST_PATH}?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) return;
+    const manifest = await response.json();
+    if (!manifest?.folders || typeof manifest.folders !== "object") return;
+
+    const merged = normalizeManifestFolders(manifest.folders);
+    for (const key of Object.keys(folders)) delete folders[key];
+    Object.assign(folders, merged);
+    if (!folders[activeFolderKey]) activeFolderKey = DEFAULT_FOLDER_KEY;
+    renderFolderControls();
+    if (galleryState === "open") updateGalleryPhoto();
+    debugStatus.textContent = "相册已同步";
+  } catch (error) {
+    console.warn(error);
+  }
+}
+
+function normalizeManifestFolders(source) {
+  const normalized = {
+    [DEFAULT_FOLDER_KEY]: {
+      title: DEFAULT_FOLDER_KEY,
+      images: DEFAULT_IMAGES,
+      builtIn: true,
+    },
+    [CJ_FOLDER_KEY]: {
+      title: CJ_FOLDER_KEY,
+      images: [],
+    },
+  };
+
+  for (const [key, value] of Object.entries(source)) {
+    if (!value || typeof value !== "object") continue;
+    const title = typeof value.title === "string" && value.title.trim() ? value.title.trim() : key;
+    const images = Array.isArray(value.images) ? value.images.filter((item) => typeof item === "string") : [];
+    normalized[key] = {
+      title,
+      images: key === DEFAULT_FOLDER_KEY && !images.length ? DEFAULT_IMAGES : images,
+      builtIn: !!value.builtIn || key === DEFAULT_FOLDER_KEY,
+    };
+  }
+
+  return normalized;
+}
+
+async function saveFoldersEverywhere(message, token) {
+  saveStoredFolders();
+  await putGithubFile(MANIFEST_PATH, utf8ToBase64(JSON.stringify({ folders: serializeFolders(folders) }, null, 2)), message, token);
+}
+
+async function putGithubFile(path, contentBase64, message, token) {
+  const existing = await getGithubFile(path, token);
+  const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponentPath(path)}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: JSON.stringify({
+      message,
+      content: contentBase64,
+      branch: GITHUB_BRANCH,
+      sha: existing?.sha,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GitHub 写入失败 ${response.status}: ${text.slice(0, 120)}`);
+  }
+  return response.json();
+}
+
+async function getGithubFile(path, token) {
+  const response = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodeURIComponentPath(path)}?ref=${GITHUB_BRANCH}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GitHub 读取失败 ${response.status}: ${text.slice(0, 120)}`);
+  }
+  return response.json();
+}
+
+function configureGithubToken() {
+  const current = localStorage.getItem(GITHUB_TOKEN_KEY) || "";
+  const token = window.prompt("请输入 GitHub fine-grained token（需要 Contents: Read and write）", current);
+  if (token === null) return;
+  const trimmed = token.trim();
+  if (!trimmed) {
+    localStorage.removeItem(GITHUB_TOKEN_KEY);
+    authButton.classList.remove("active");
+    showToast("已清除 GitHub 授权。");
+    return;
+  }
+  localStorage.setItem(GITHUB_TOKEN_KEY, trimmed);
+  authButton.classList.add("active");
+  showToast("授权已保存到本浏览器，可用于上传到 GitHub 仓库。");
+}
+
+async function requireGithubToken() {
+  let token = localStorage.getItem(GITHUB_TOKEN_KEY) || "";
+  if (!token) {
+    configureGithubToken();
+    token = localStorage.getItem(GITHUB_TOKEN_KEY) || "";
+  }
+  if (!token) showToast("需要先点击“授权”填写 GitHub Token，才能保存到多设备可见的相册。");
+  return token;
+}
+
+function hasGithubToken() {
+  return !!localStorage.getItem(GITHUB_TOKEN_KEY);
+}
+
+function makeUploadFileName(file) {
+  const safeName = file.name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5-]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName || "photo"}.jpg`;
+}
+
+function encodeURIComponentPath(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function utf8ToBase64(text) {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(text)));
 }
 
 function compressImageFile(file) {
@@ -770,7 +923,11 @@ function compressImageFile(file) {
         imageCanvas.height = height;
         const ctx = imageCanvas.getContext("2d");
         ctx.drawImage(image, 0, 0, width, height);
-        resolve(imageCanvas.toDataURL("image/jpeg", 0.84));
+        const dataUrl = imageCanvas.toDataURL("image/jpeg", 0.84);
+        resolve({
+          dataUrl,
+          base64: dataUrl.split(",")[1],
+        });
       };
       image.onerror = reject;
       image.src = reader.result;
@@ -801,7 +958,7 @@ function loadStoredFolders() {
         const images = Array.isArray(value.images) ? value.images.filter((item) => typeof item === "string") : [];
         base[key] = {
           title,
-          images: key === DEFAULT_FOLDER_KEY ? DEFAULT_IMAGES : images,
+          images: key === DEFAULT_FOLDER_KEY && !images.length ? DEFAULT_IMAGES : images,
           builtIn: key === DEFAULT_FOLDER_KEY,
         };
       }
@@ -827,7 +984,7 @@ function serializeFolders(source) {
     key,
     {
       title: folder.title,
-      images: folder.builtIn ? [] : folder.images,
+      images: folder.images,
       builtIn: !!folder.builtIn,
     },
   ]));
@@ -860,10 +1017,12 @@ function renderFolderControls() {
   }
 }
 
-function createFolder() {
+async function createFolder() {
   const raw = window.prompt("请输入新文件夹名称", "");
   const title = raw?.trim();
   if (!title) return;
+  const token = await requireGithubToken();
+  if (!token) return;
 
   const key = makeFolderKey(title);
   if (folders[key]) {
@@ -877,10 +1036,16 @@ function createFolder() {
   };
   activeFolderKey = key;
   galleryIndex = 0;
-  saveStoredFolders();
-  renderFolderControls();
-  openGallery(key);
-  showToast(`已新建 ${title} 文件夹。`);
+  try {
+    await saveFoldersEverywhere(`Create album folder ${title}`, token);
+    renderFolderControls();
+    openGallery(key);
+    showToast(`已新建 ${title} 文件夹，其他设备稍后刷新即可看到。`);
+  } catch (error) {
+    delete folders[key];
+    console.warn(error);
+    showToast(`新建失败：${error.message || "请检查 GitHub 授权和网络"}`);
+  }
 }
 
 function makeFolderKey(title) {

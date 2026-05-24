@@ -1,0 +1,18 @@
+{
+  "folders": {
+    "20260509": {
+      "title": "20260509",
+      "images": [
+        "./assets/gallery/1.jpg",
+        "./assets/gallery/2.jpg",
+        "./assets/gallery/3.jpg",
+        "./assets/gallery/4.jpg"
+      ],
+      "builtIn": true
+    },
+    "cj": {
+      "title": "cj",
+      "images": []
+    }
+  }
+}

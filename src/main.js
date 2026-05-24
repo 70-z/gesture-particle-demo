@@ -134,7 +134,6 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "3") showGalleryGate("键盘 3：相册");
   if (event.key === "ArrowLeft" && galleryState === "open") switchGalleryPhoto(-1);
   if (event.key === "ArrowRight" && galleryState === "open") switchGalleryPhoto(1);
-  if (event.key === "Escape" && galleryState === "open") closeGallery();
 });
 
 window.addEventListener("pointermove", (event) => {
@@ -299,7 +298,7 @@ function handleHandResults(results) {
         : fingerCounts[0];
 
   if (galleryState === "open") {
-    handleGalleryGestures(hands, handSpread, openness);
+    handleGalleryGestures(hands, fingerCounts, handSpread, openness);
     return;
   }
 
@@ -542,7 +541,7 @@ function openGallery() {
   gallery.setAttribute("aria-hidden", "false");
   motionStatus.textContent = "相册";
   gestureStatus.textContent = "相册模式";
-  showToast("已进入相册：左右移动手掌切换照片，双手收缩退出。");
+  showToast("已进入相册：左右移动手掌切换照片，双手掌十根手指全部伸出退出。");
 }
 
 function closeGallery() {
@@ -557,14 +556,15 @@ function closeGallery() {
   showToast("已退出相册。");
 }
 
-function handleGalleryGestures(hands, handSpread, openness) {
+function handleGalleryGestures(hands, fingerCounts, handSpread, openness) {
   gestureStatus.textContent = "相册模式";
   targetSpread = Math.max(handSpread, openness * 0.72);
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
-  motionStatus.textContent = targetSpread < 0.18 ? "退出相册" : "相册";
+  const bothPalmsOpen = hands.length >= 2 && fingerCounts.slice(0, 2).every((count) => count >= 5);
+  motionStatus.textContent = bothPalmsOpen ? "退出相册" : "相册";
 
-  if (targetSpread < 0.14) {
+  if (bothPalmsOpen) {
     closeGallery();
     return;
   }

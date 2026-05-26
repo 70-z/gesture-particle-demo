@@ -467,6 +467,7 @@ function handleHandResults(results) {
       setStatusText(gestureStatus, galleryState === "open" ? "相册模式" : "等待手势");
       setStatusText(cameraStatus, "已开启");
     }
+    releaseTextGestureLock();
     if (!isTextViewLocked()) {
       targetHandRotationY *= 0.94;
       targetHandRotationX *= 0.94;
@@ -499,8 +500,9 @@ function handleHandResults(results) {
   }
 
   if (primaryCount >= 1 && primaryCount <= 3) {
-    setActiveShape(shapeKeyFromNumber(primaryCount));
+    setActiveShape(shapeKeyFromNumber(primaryCount), undefined, { lockFromGesture: true });
   } else {
+    releaseTextGestureLock();
     setStatusText(gestureStatus, `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`);
   }
 
@@ -647,6 +649,10 @@ function resetViewRotation() {
 
 function isTextViewLocked() {
   return galleryState !== "open" && !activeFeature && !!lockedTextShape;
+}
+
+function releaseTextGestureLock() {
+  lockedTextShape = null;
 }
 
 function animate() {
@@ -1285,15 +1291,20 @@ function shapeKeyFromNumber(number) {
   return ["one", "two", "three"][number - 1] ?? "one";
 }
 
-function setActiveShape(shape, message) {
+function setActiveShape(shape, message, options = {}) {
   if (galleryState === "open") return;
   const shapeChanged = activeShape !== shape || activeFeature;
+  const lockChanged = lockedTextShape !== shape;
   activeFeature = null;
   setFeaturePanelOpen(false);
   galleryState = "closed";
   activeShape = shape;
-  lockedTextShape = shape;
-  if (shapeChanged) resetViewRotation();
+  if (options.lockFromGesture) {
+    lockedTextShape = shape;
+    if (shapeChanged || lockChanged) resetViewRotation();
+  } else {
+    releaseTextGestureLock();
+  }
   activeTargets = shapeTargets[shape];
   if (shapeChanged) lastTextGestureAt = performance.now();
   textOneButton.classList.toggle("active", shape === "one");
@@ -1325,7 +1336,7 @@ function setFeatureShape(shape) {
   if (!featureTargets[shape]) return;
   if (galleryState === "open") closeGallery();
   activeFeature = shape;
-  lockedTextShape = null;
+  releaseTextGestureLock();
   activeTargets = featureTargets[shape];
   targetSpread = 0;
   smoothedSpread = Math.min(smoothedSpread, 0.18);
@@ -1364,7 +1375,7 @@ function numberFromShapeKey(shape) {
 
 function openGallery(folderKey = activeFolderKey) {
   activeFeature = null;
-  lockedTextShape = null;
+  releaseTextGestureLock();
   setFeaturePanelOpen(false);
   updateFeatureButtonState();
   activeFolderKey = folders[folderKey] ? folderKey : DEFAULT_FOLDER_KEY;

@@ -11,6 +11,11 @@
   --rose: #ff8ac6;
   --deep: #bf2f74;
   --soft: #ffd1e8;
+  --theme-button: rgba(255, 93, 168, 0.1);
+  --theme-button-active: rgba(255, 93, 168, 0.2);
+  --theme-border: rgba(255, 138, 198, 0.76);
+  --theme-glow: rgba(255, 93, 168, 0.14);
+  --theme-background: #100612;
 }
 
 * {
@@ -24,7 +29,7 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background: #100612;
+  background: var(--theme-background);
 }
 
 body {
@@ -147,13 +152,14 @@ body {
 .status-grid,
 .control-panel,
 .feature-panel,
+.sensitivity-panel,
 #toast {
   border: 1px solid var(--line);
   background: var(--panel);
   backdrop-filter: blur(18px);
   box-shadow:
     0 16px 60px rgba(0, 0, 0, 0.28),
-    0 0 42px rgba(255, 93, 168, 0.1);
+    0 0 42px var(--theme-glow);
 }
 
 .status-panel {
@@ -270,6 +276,7 @@ body {
 .control-panel button,
 .control-panel select,
 .feature-panel button,
+.sensitivity-panel button,
 .gallery-actions button,
 .gallery-actions select {
   min-width: 42px;
@@ -278,7 +285,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--paper);
-  background: rgba(255, 93, 168, 0.1);
+  background: var(--theme-button);
   font: 700 15px / 1 system-ui, sans-serif;
   cursor: pointer;
 }
@@ -290,24 +297,24 @@ body {
 .feature-panel button.active,
 .feature-panel button:hover,
 .feature-panel button:focus,
+.sensitivity-panel button.active,
+.sensitivity-panel button:hover,
+.sensitivity-panel button:focus,
 .gallery-actions button.active,
 .gallery-actions button:hover,
 .gallery-actions select:hover,
 .gallery-actions select:focus {
-  border-color: rgba(255, 138, 198, 0.76);
-  background: rgba(255, 93, 168, 0.2);
+  border-color: var(--theme-border);
+  background: var(--theme-button-active);
   outline: none;
 }
 
-.feature-panel {
+.feature-panel,
+.sensitivity-panel {
   position: fixed;
   left: 18px;
   bottom: 86px;
   z-index: 4;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(72px, auto));
-  gap: 8px;
-  max-width: min(420px, calc(100vw - 36px));
   padding: 10px;
   border-radius: 8px;
   opacity: 0;
@@ -319,7 +326,15 @@ body {
     transform 220ms ease;
 }
 
-.feature-panel.open {
+.feature-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, auto));
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 36px));
+}
+
+.feature-panel.open,
+.sensitivity-panel.open {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
@@ -328,9 +343,67 @@ body {
 .feature-panel button {
   min-width: 72px;
   color: #fff7fb;
-  background: rgba(255, 93, 168, 0.16);
+  background: var(--theme-button);
   font-family: "Microsoft YaHei UI", system-ui, sans-serif;
-  box-shadow: 0 0 24px rgba(255, 93, 168, 0.12);
+  box-shadow: 0 0 24px var(--theme-glow);
+}
+
+.sensitivity-panel {
+  display: grid;
+  gap: 10px;
+  width: min(330px, calc(100vw - 36px));
+}
+
+.sensitivity-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sensitivity-panel label {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--soft);
+  font: 700 13px / 1.2 "Microsoft YaHei UI", system-ui, sans-serif;
+}
+
+.sensitivity-panel input {
+  width: 100%;
+  accent-color: var(--pink);
+}
+
+.sensitivity-panel strong {
+  min-width: 28px;
+  color: var(--paper);
+  text-align: right;
+}
+
+.color-palette {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.color-palette[hidden] {
+  display: none;
+}
+
+.color-palette button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.color-palette span {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 0 12px var(--swatch);
 }
 
 .control-panel select,
@@ -709,6 +782,25 @@ body {
     min-width: 38px;
     height: 38px;
     padding: 0 10px;
+  }
+
+  .sensitivity-panel {
+    left: 12px;
+    right: 12px;
+    bottom: 72px;
+    width: auto;
+  }
+
+  .sensitivity-panel label {
+    grid-template-columns: 1fr auto;
+  }
+
+  .sensitivity-panel input {
+    grid-column: 1 / -1;
+  }
+
+  .color-palette {
+    grid-template-columns: repeat(2, minmax(72px, 1fr));
   }
 
   .control-panel select {

@@ -7,6 +7,9 @@ const GITHUB_TOKEN_KEY = "gestureParticleGithubToken";
 const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const STATUS_COLLAPSED_KEY = "gestureParticleStatusCollapsed";
 const CAMERA_PREVIEW_COLLAPSED_KEY = "gestureParticleCameraPanelCollapsed";
+const THEME_COLOR_KEY = "gestureParticleThemeColor";
+const SPREAD_SENSITIVITY_KEY = "gestureParticleSpreadSensitivity";
+const ROTATION_SENSITIVITY_KEY = "gestureParticleRotationSensitivityV2";
 const DEFAULT_FOLDER_KEY = "20260509";
 const CJ_FOLDER_KEY = "cj";
 const GITHUB_OWNER = "70-z";
@@ -36,6 +39,14 @@ const FEATURE_LABELS = {
   dragon: "素龙",
   sphere: "球体",
 };
+const THEME_PRESETS = {
+  pink: ["#ff5da8", "#ff8ac6", "#bf2f74", "#ffd1e8", "#100612", 0.925],
+  blue: ["#4da3ff", "#8fd2ff", "#2863d8", "#caecff", "#06101e", 0.58],
+  green: ["#4ee08a", "#9affbd", "#159a55", "#caffdd", "#06140d", 0.39],
+  red: ["#ff5b6e", "#ff9aa6", "#c9273d", "#ffd1d6", "#130509", 0.985],
+  yellow: ["#ffd84d", "#ffe98f", "#c49316", "#fff1ba", "#120d04", 0.14],
+  purple: ["#b56cff", "#d4a3ff", "#7c34cf", "#ead2ff", "#0e0616", 0.765],
+};
 
 const folders = loadStoredFolders();
 
@@ -50,13 +61,21 @@ const motionStatus = document.querySelector("#motionStatus");
 const debugStatus = document.querySelector("#debugStatus");
 const statusPanel = document.querySelector("#statusPanel");
 const statusToggle = document.querySelector("#statusToggle");
-const spreadControl = document.querySelector("#spreadControl");
+const sensitivityButton = document.querySelector("#sensitivityButton");
+const sensitivityPanel = document.querySelector("#sensitivityPanel");
+const rotationSensitivityButton = document.querySelector("#rotationSensitivityButton");
+const spreadSensitivityButton = document.querySelector("#spreadSensitivityButton");
+const sensitivityControl = document.querySelector("#sensitivityControl");
+const sensitivityLabel = document.querySelector("#sensitivityLabel");
+const sensitivityValue = document.querySelector("#sensitivityValue");
 const textOneButton = document.querySelector("#textOne");
 const textTwoButton = document.querySelector("#textTwo");
 const numberThreeButton = document.querySelector("#numberThree");
 const featureButton = document.querySelector("#featureButton");
 const featurePanel = document.querySelector("#featurePanel");
 const featureExitButton = document.querySelector("#featureExit");
+const colorButton = document.querySelector("#colorButton");
+const colorPalette = document.querySelector("#colorPalette");
 const exitGalleryButton = document.querySelector("#exitGallery");
 const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
 const newFolderButton = document.querySelector("#newFolderButton");
@@ -116,6 +135,10 @@ loadFeatureImageTargets();
 const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
 let activeTargets = shapeTargets.one;
+let spreadSensitivity = loadStoredNumber(SPREAD_SENSITIVITY_KEY, 42);
+let rotationSensitivity = loadStoredNumber(ROTATION_SENSITIVITY_KEY, 86);
+let sensitivityMode = "rotation";
+let activeTheme = localStorage.getItem(THEME_COLOR_KEY) || "pink";
 
 for (let i = 0; i < PARTICLE_COUNT; i += 1) {
   const offset = i * 3;
@@ -146,8 +169,6 @@ const material = new THREE.PointsMaterial({
 const points = new THREE.Points(geometry, material);
 group.add(points);
 
-const SPREAD_RESPONSE = 0.62;
-const HAND_ROTATION_LIMIT = 0.42;
 let activeShape = "one";
 let activeFolderKey = DEFAULT_FOLDER_KEY;
 let targetSpread = 0.36;
@@ -181,6 +202,8 @@ let activeFeature = null;
 setActiveShape("one");
 resize();
 window.addEventListener("resize", resize);
+applyTheme(activeTheme);
+updateSensitivityPanel();
 
 textOneButton.addEventListener("click", () => handleNumberAction(1, "点击 1"));
 textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"));
@@ -191,6 +214,15 @@ featurePanel.addEventListener("click", (event) => {
   const button = event.target.closest("[data-feature-shape]");
   if (!button) return;
   setFeatureShape(button.dataset.featureShape);
+});
+colorButton.addEventListener("click", () => {
+  colorPalette.hidden = !colorPalette.hidden;
+  colorButton.classList.toggle("active", !colorPalette.hidden);
+});
+colorPalette.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-theme-color]");
+  if (!button) return;
+  applyTheme(button.dataset.themeColor, true);
 });
 exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
 defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey));
@@ -206,9 +238,20 @@ cjUpload.addEventListener("change", handleCjUpload);
 folderSelect.addEventListener("change", () => {
   if (folders[folderSelect.value]) openGallery(folderSelect.value);
 });
-spreadControl.addEventListener("input", () => {
-  targetSpread = Number(spreadControl.value) / 100;
-  motionStatus.textContent = spreadLabel(targetSpread);
+sensitivityButton.addEventListener("click", () => setSensitivityPanelOpen(!sensitivityPanel.classList.contains("open")));
+rotationSensitivityButton.addEventListener("click", () => setSensitivityMode("rotation"));
+spreadSensitivityButton.addEventListener("click", () => setSensitivityMode("spread"));
+sensitivityControl.addEventListener("input", () => {
+  const value = Number(sensitivityControl.value);
+  if (sensitivityMode === "rotation") {
+    rotationSensitivity = value;
+    localStorage.setItem(ROTATION_SENSITIVITY_KEY, String(value));
+  } else {
+    spreadSensitivity = value;
+    localStorage.setItem(SPREAD_SENSITIVITY_KEY, String(value));
+    targetSpread = THREE.MathUtils.clamp(targetSpread, 0, getSpreadResponse());
+  }
+  updateSensitivityPanel();
 });
 
 window.addEventListener("keydown", (event) => {
@@ -228,8 +271,7 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("pointermove", (event) => {
   if (hasHands) return;
   if (activeFeature) return;
-  targetSpread = Math.min(1, Math.max(0, event.clientX / window.innerWidth));
-  spreadControl.value = String(Math.round(targetSpread * 100));
+  targetSpread = Math.min(1, Math.max(0, event.clientX / window.innerWidth)) * getSpreadResponse();
   motionStatus.textContent = spreadLabel(targetSpread);
 });
 
@@ -433,7 +475,6 @@ function handleHandResults(results) {
     gestureStatus.textContent = `功能 ${FEATURE_LABELS[activeFeature]}`;
     targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
     targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
-    spreadControl.value = String(Math.round(targetSpread * 100));
     motionStatus.textContent = spreadLabel(targetSpread);
     return;
   }
@@ -447,10 +488,9 @@ function handleHandResults(results) {
   const textGestureActive = primaryCount >= 1 && primaryCount <= 3;
   targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
   if (textGestureActive) {
-    targetSpread = handSpread > 0.34 ? THREE.MathUtils.smoothstep(handSpread, 0.34, 0.92) * SPREAD_RESPONSE : 0;
+    targetSpread = handSpread > 0.34 ? THREE.MathUtils.smoothstep(handSpread, 0.34, 0.92) * getSpreadResponse() : 0;
   }
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
-  spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = spreadLabel(targetSpread);
 }
 
@@ -541,7 +581,7 @@ function dampGestureValue(value, channel, deadZone = 0.035) {
   const currentValue = channel === "openness" ? smoothedHandOpenness : smoothedHandSpread;
   const next = Math.abs(value - currentValue) < deadZone
     ? currentValue
-    : currentValue + (value - currentValue) * 0.18;
+    : currentValue + (value - currentValue) * getGestureDamping(channel);
   const clamped = THREE.MathUtils.clamp(next, 0, 1);
   if (channel === "openness") smoothedHandOpenness = clamped;
   else smoothedHandSpread = clamped;
@@ -549,7 +589,20 @@ function dampGestureValue(value, channel, deadZone = 0.035) {
 }
 
 function softenSpread(value) {
-  return THREE.MathUtils.smoothstep(value, 0.12, 0.96) * SPREAD_RESPONSE;
+  return THREE.MathUtils.smoothstep(value, 0.12, 0.96) * getSpreadResponse();
+}
+
+function getSpreadResponse() {
+  return THREE.MathUtils.lerp(0.34, 1, spreadSensitivity / 100);
+}
+
+function getRotationLimit() {
+  return THREE.MathUtils.lerp(0.36, 1.72, rotationSensitivity / 100);
+}
+
+function getGestureDamping(channel) {
+  const value = channel === "openness" ? spreadSensitivity : rotationSensitivity;
+  return THREE.MathUtils.lerp(0.1, 0.28, value / 100);
 }
 
 function updateHandRotation(hands) {
@@ -560,8 +613,8 @@ function updateHandRotation(hands) {
   const rawY = THREE.MathUtils.clamp((center.y - 0.52) / 0.38, -1, 1);
   const deadX = Math.abs(rawX) < 0.11 ? 0 : rawX;
   const deadY = Math.abs(rawY) < 0.13 ? 0 : rawY;
-  targetHandRotationY = -deadX * HAND_ROTATION_LIMIT;
-  targetHandRotationX = -deadY * HAND_ROTATION_LIMIT * 0.42;
+  targetHandRotationY = -deadX * getRotationLimit();
+  targetHandRotationX = -deadY * getRotationLimit() * 0.42;
 }
 
 function animate() {
@@ -1074,7 +1127,8 @@ function capsuleDistance(px, py, ax, ay, bx, by) {
 function getDefaultParticleColor(i, elapsed = 0) {
   const tone = i / PARTICLE_COUNT;
   const shimmer = (Math.sin(elapsed * 1.8 + i * 0.017) + 1) * 0.5;
-  const hue = THREE.MathUtils.lerp(0.885, 0.965, (tone * 1.7 + shimmer * 0.24) % 1);
+  const baseHue = THEME_PRESETS[activeTheme]?.[5] ?? THEME_PRESETS.pink[5];
+  const hue = (baseHue + THREE.MathUtils.lerp(-0.04, 0.04, (tone * 1.7 + shimmer * 0.24) % 1) + 1) % 1;
   const saturation = THREE.MathUtils.lerp(0.74, 0.98, shimmer);
   const lightness = THREE.MathUtils.lerp(0.58, 0.76, Math.sin(tone * Math.PI * 6) * 0.5 + 0.5);
   return new THREE.Color().setHSL(hue, saturation, lightness);
@@ -1085,6 +1139,71 @@ function setDefaultParticleColor(i, offset) {
   colorArray[offset] = color.r;
   colorArray[offset + 1] = color.g;
   colorArray[offset + 2] = color.b;
+}
+
+function setSensitivityPanelOpen(open) {
+  if (open) setFeaturePanelOpen(false, { preserveActive: true });
+  sensitivityPanel.classList.toggle("open", open);
+  sensitivityPanel.setAttribute("aria-hidden", String(!open));
+  sensitivityButton.classList.toggle("active", open);
+}
+
+function setSensitivityMode(mode) {
+  sensitivityMode = mode;
+  updateSensitivityPanel();
+}
+
+function updateSensitivityPanel() {
+  const isRotation = sensitivityMode === "rotation";
+  const value = isRotation ? rotationSensitivity : spreadSensitivity;
+  rotationSensitivityButton.classList.toggle("active", isRotation);
+  spreadSensitivityButton.classList.toggle("active", !isRotation);
+  sensitivityLabel.textContent = isRotation ? "旋转灵敏度" : "扩散灵敏度";
+  sensitivityControl.value = String(value);
+  sensitivityValue.textContent = String(value);
+}
+
+function applyTheme(name, persist = false) {
+  const themeName = THEME_PRESETS[name] ? name : "pink";
+  const [main, rose, deep, soft, background] = THEME_PRESETS[themeName];
+  activeTheme = themeName;
+  document.documentElement.style.setProperty("--pink", main);
+  document.documentElement.style.setProperty("--rose", rose);
+  document.documentElement.style.setProperty("--deep", deep);
+  document.documentElement.style.setProperty("--soft", soft);
+  document.documentElement.style.setProperty("--theme-button", toAlpha(main, 0.12));
+  document.documentElement.style.setProperty("--theme-button-active", toAlpha(main, 0.24));
+  document.documentElement.style.setProperty("--theme-border", toAlpha(rose, 0.78));
+  document.documentElement.style.setProperty("--theme-glow", toAlpha(main, 0.18));
+  document.documentElement.style.setProperty("--theme-background", background);
+  renderer.setClearColor(new THREE.Color(background), 1);
+  scene.fog.color.set(background);
+  colorPalette.querySelectorAll("[data-theme-color]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.themeColor === themeName);
+  });
+  if (persist) {
+    localStorage.setItem(THEME_COLOR_KEY, themeName);
+    showToast(`已切换为${themeColorName(themeName)}。`);
+  }
+}
+
+function themeColorName(name) {
+  return { blue: "蓝色", green: "绿色", red: "红色", yellow: "黄色", purple: "紫色", pink: "粉色" }[name] ?? "粉色";
+}
+
+function toAlpha(hex, alpha) {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function loadStoredNumber(key, fallback) {
+  const stored = localStorage.getItem(key);
+  if (stored === null || stored === "") return fallback;
+  const value = Number(stored);
+  return Number.isFinite(value) ? THREE.MathUtils.clamp(value, 0, 100) : fallback;
 }
 
 function makeScatterTargets() {
@@ -1142,10 +1261,15 @@ function setActiveShape(shape, message) {
   if (message) showToast(message);
 }
 
-function setFeaturePanelOpen(open) {
+function setFeaturePanelOpen(open, options = {}) {
+  if (open) setSensitivityPanelOpen(false);
+  if (!open) {
+    colorPalette.hidden = true;
+    colorButton.classList.remove("active");
+  }
   featurePanel.classList.toggle("open", open);
   featurePanel.setAttribute("aria-hidden", String(!open));
-  featureButton.classList.toggle("active", open || !!activeFeature);
+  featureButton.classList.toggle("active", open || (!!activeFeature && options.preserveActive !== false));
 }
 
 function setFeatureShape(shape) {
@@ -1230,7 +1354,6 @@ function updateGalleryMotion(handSpread, openness) {
   gestureStatus.textContent = "相册模式";
   targetSpread = Math.max(0.18, softenSpread(Math.max(handSpread, openness * 0.62)));
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
-  spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = "相册";
 }
 

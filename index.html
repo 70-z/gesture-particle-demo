@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>青年才俊</title>
-    <link rel="stylesheet" href="./src/styles.css?v=23" />
+    <link rel="stylesheet" href="./src/styles.css?v=24" />
   </head>
   <body>
     <main id="app">
@@ -20,22 +20,32 @@
           </div>
         </div>
 
-        <div class="status-grid">
-          <div>
-            <span>摄像头</span>
-            <strong id="cameraStatus">等待授权</strong>
-          </div>
-          <div>
-            <span>手势</span>
-            <strong id="gestureStatus">识别中</strong>
-          </div>
-          <div>
-            <span>粒子状态</span>
-            <strong id="motionStatus">呼吸</strong>
-          </div>
-          <div>
-            <span>诊断</span>
-            <strong id="debugStatus">待检测</strong>
+        <div id="statusPanel" class="status-panel">
+          <button
+            id="statusToggle"
+            class="status-toggle"
+            type="button"
+            aria-controls="statusGrid"
+            aria-expanded="true"
+            aria-label="收起状态栏"
+          >收起</button>
+          <div id="statusGrid" class="status-grid">
+            <div>
+              <span>摄像头</span>
+              <strong id="cameraStatus">等待授权</strong>
+            </div>
+            <div>
+              <span>手势</span>
+              <strong id="gestureStatus">识别中</strong>
+            </div>
+            <div>
+              <span>粒子状态</span>
+              <strong id="motionStatus">呼吸</strong>
+            </div>
+            <div>
+              <span>诊断</span>
+              <strong id="debugStatus">待检测</strong>
+            </div>
           </div>
         </div>
       </section>
@@ -91,6 +101,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=29"></script>
+    <script type="module" src="./src/main.js?v=30"></script>
   </body>
 </html>

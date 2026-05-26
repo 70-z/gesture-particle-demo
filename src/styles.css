@@ -88,6 +88,36 @@ body {
     0 0 42px rgba(255, 93, 168, 0.1);
 }
 
+.status-panel {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 8px;
+  pointer-events: auto;
+}
+
+.status-toggle {
+  flex: 0 0 auto;
+  min-width: 48px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 174, 216, 0.42);
+  border-radius: 8px;
+  color: var(--paper);
+  background: rgba(255, 93, 168, 0.18);
+  font: 800 13px / 1 "Microsoft YaHei UI", system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(255, 93, 168, 0.14);
+}
+
+.status-toggle:hover,
+.status-toggle:focus {
+  border-color: rgba(255, 138, 198, 0.82);
+  background: rgba(255, 93, 168, 0.28);
+  outline: none;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -133,12 +163,27 @@ body {
   gap: 1px;
   overflow: hidden;
   border-radius: 8px;
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease,
+    max-width 220ms ease;
 }
 
 .status-grid div {
   min-width: 0;
   padding: 12px 14px;
   background: rgba(255, 93, 168, 0.055);
+}
+
+.status-panel.collapsed {
+  padding: 0;
+}
+
+.status-panel.collapsed .status-grid {
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(10px);
+  pointer-events: none;
 }
 
 .control-panel {
@@ -452,6 +497,18 @@ body {
 
   .status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .status-panel {
+    align-self: flex-end;
+  }
+
+  .status-panel:not(.collapsed) {
+    width: 100%;
+  }
+
+  .status-panel:not(.collapsed) .status-grid {
+    flex: 1 1 auto;
   }
 
   #camera {

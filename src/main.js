@@ -5,6 +5,7 @@ const COUNTER_PARTICLES = 3400;
 const ALBUM_STORAGE_KEY = "gestureParticleAlbumFolders";
 const GITHUB_TOKEN_KEY = "gestureParticleGithubToken";
 const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
+const STATUS_COLLAPSED_KEY = "gestureParticleStatusCollapsed";
 const DEFAULT_FOLDER_KEY = "20260509";
 const CJ_FOLDER_KEY = "cj";
 const GITHUB_OWNER = "70-z";
@@ -31,6 +32,8 @@ const cameraStatus = document.querySelector("#cameraStatus");
 const gestureStatus = document.querySelector("#gestureStatus");
 const motionStatus = document.querySelector("#motionStatus");
 const debugStatus = document.querySelector("#debugStatus");
+const statusPanel = document.querySelector("#statusPanel");
+const statusToggle = document.querySelector("#statusToggle");
 const spreadControl = document.querySelector("#spreadControl");
 const textOneButton = document.querySelector("#textOne");
 const textTwoButton = document.querySelector("#textTwo");
@@ -185,6 +188,7 @@ animate();
 renderFolderControls();
 loadRemoteFolders();
 setupHands();
+initStatusPanel();
 
 async function setupHands({ force = false } = {}) {
   if (!window.Hands) {
@@ -219,6 +223,22 @@ async function setupHands({ force = false } = {}) {
     showToast(readableCameraError(error).message);
     console.warn(error);
   }
+}
+
+function initStatusPanel() {
+  const collapsed = localStorage.getItem(STATUS_COLLAPSED_KEY) === "true";
+  setStatusPanelCollapsed(collapsed);
+  statusToggle.addEventListener("click", () => {
+    setStatusPanelCollapsed(!statusPanel.classList.contains("collapsed"));
+  });
+}
+
+function setStatusPanelCollapsed(collapsed) {
+  statusPanel.classList.toggle("collapsed", collapsed);
+  statusToggle.textContent = collapsed ? "状态" : "收起";
+  statusToggle.setAttribute("aria-expanded", String(!collapsed));
+  statusToggle.setAttribute("aria-label", collapsed ? "展开状态栏" : "收起状态栏");
+  localStorage.setItem(STATUS_COLLAPSED_KEY, String(collapsed));
 }
 
 function createHandsModel() {

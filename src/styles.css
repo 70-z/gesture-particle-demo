@@ -155,7 +155,9 @@ body {
 }
 
 .control-panel button,
-.control-panel select {
+.control-panel select,
+.gallery-actions button,
+.gallery-actions select {
   min-width: 42px;
   height: 42px;
   padding: 0 12px;
@@ -170,13 +172,18 @@ body {
 .control-panel button.active,
 .control-panel button:hover,
 .control-panel select:hover,
-.control-panel select:focus {
+.control-panel select:focus,
+.gallery-actions button.active,
+.gallery-actions button:hover,
+.gallery-actions select:hover,
+.gallery-actions select:focus {
   border-color: rgba(255, 138, 198, 0.76);
   background: rgba(255, 93, 168, 0.2);
   outline: none;
 }
 
-.control-panel select {
+.control-panel select,
+.gallery-actions select {
   max-width: 170px;
   color: var(--soft);
   appearance: none;
@@ -226,17 +233,43 @@ body {
   pointer-events: auto;
 }
 
-.folder-tabs {
+.gallery-layout {
   position: fixed;
   left: 50%;
-  top: 118px;
-  z-index: 5;
+  top: 50%;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(86vw, 840px);
+  max-height: calc(100vh - 168px);
+  transform: translate(-50%, -44%);
+}
+
+.gallery-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  width: min(760px, 100%);
+  padding: 10px;
+  border: 1px solid rgba(255, 174, 216, 0.24);
+  border-radius: 8px;
+  background: rgba(28, 7, 22, 0.66);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 16px 54px rgba(0, 0, 0, 0.32),
+    0 0 46px rgba(255, 93, 168, 0.14);
+}
+
+.folder-tabs,
+.gallery-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  width: min(720px, calc(100vw - 32px));
-  transform: translateX(-50%);
+  width: 100%;
 }
 
 .folder-tabs button {
@@ -261,14 +294,9 @@ body {
 }
 
 .gallery-frame {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  z-index: 4;
   width: min(54vw, 700px);
   height: min(56vh, 520px);
   margin: 0;
-  transform: translate(-50%, -44%);
   overflow: visible;
   border: 0;
   background: transparent;
@@ -299,7 +327,7 @@ body {
 .gallery-frame figcaption {
   position: absolute;
   left: 50%;
-  bottom: -56px;
+  bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -307,7 +335,7 @@ body {
   min-width: min(260px, 80vw);
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(28, 7, 22, 0.66);
+  background: rgba(28, 7, 22, 0.72);
   backdrop-filter: blur(14px);
   color: rgba(255, 247, 251, 0.92);
   transform: translateX(-50%);
@@ -377,11 +405,11 @@ body {
 }
 
 .gallery-nav.prev {
-  left: max(22px, calc(50% - min(54vw, 700px) / 2 - 82px));
+  left: max(22px, calc(50% - min(86vw, 840px) / 2 - 76px));
 }
 
 .gallery-nav.next {
-  right: max(22px, calc(50% - min(54vw, 700px) / 2 - 82px));
+  right: max(22px, calc(50% - min(86vw, 840px) / 2 - 76px));
 }
 
 .gallery-nav:hover {
@@ -436,10 +464,32 @@ body {
     padding: 0;
   }
 
+  .gallery-layout {
+    top: 50%;
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 146px);
+    gap: 10px;
+    transform: translate(-50%, -46%);
+  }
+
   .gallery-frame {
     width: calc(100vw - 30px);
-    height: min(48vh, 430px);
-    top: 48%;
+    height: min(44vh, 390px);
+  }
+
+  .gallery-frame figcaption {
+    bottom: 8px;
+    min-width: min(240px, calc(100vw - 60px));
+  }
+
+  .gallery-tools {
+    width: calc(100vw - 24px);
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .gallery-actions {
+    gap: 7px;
   }
 
   .gallery-nav {
@@ -476,7 +526,6 @@ body {
   }
 
   .folder-tabs {
-    top: 196px;
     gap: 6px;
   }
 
@@ -484,6 +533,20 @@ body {
     min-width: 68px;
     height: 32px;
     padding: 0 10px;
+  }
+
+  .gallery-actions button,
+  .gallery-actions select {
+    flex: 1 1 auto;
+    min-width: 58px;
+    height: 36px;
+    padding: 0 9px;
+    font-size: 13px;
+  }
+
+  .gallery-actions select {
+    flex-basis: 124px;
+    max-width: none;
   }
 
   .control-panel label {

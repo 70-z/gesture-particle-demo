@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>青年才俊</title>
-    <link rel="stylesheet" href="./src/styles.css?v=22" />
+    <link rel="stylesheet" href="./src/styles.css?v=23" />
   </head>
   <body>
     <main id="app">
@@ -45,14 +45,7 @@
         <button id="textTwo" type="button" aria-label="切换到苏音唯美，爱泷不悔">2</button>
         <button id="numberThree" type="button" aria-label="切换文字或第 3 张">3</button>
         <button id="numberFour" type="button" aria-label="切换文字或第 4 张">4</button>
-        <button id="exitGallery" type="button" aria-label="退出相册">退出</button>
         <button id="defaultGalleryButton" type="button" aria-label="打开相册">相册</button>
-        <button id="newFolderButton" type="button" aria-label="新建相册文件夹">新建</button>
-        <select id="folderSelect" aria-label="选择上传文件夹"></select>
-        <button id="authButton" type="button" aria-label="设置 GitHub 上传授权">授权</button>
-        <button id="cjUploadButton" type="button" aria-label="上传照片">上传</button>
-        <button id="deletePhotoButton" type="button" aria-label="删除当前照片">删除</button>
-        <input id="cjUpload" class="upload-input" type="file" accept="image/*" multiple />
         <button id="cameraRetry" type="button" aria-label="重新连接摄像头">摄像头</button>
         <label>
           <span>扩散</span>
@@ -61,16 +54,29 @@
       </section>
 
       <section id="gallery" class="gallery" aria-label="相册" aria-hidden="true">
-        <div id="folderTabs" class="folder-tabs" aria-label="相册文件夹"></div>
         <button id="galleryPrev" class="gallery-nav prev" type="button" aria-label="上一张">‹</button>
-        <figure class="gallery-frame">
-          <img id="galleryImage" alt="相册照片" />
-          <figcaption>
-            <strong id="galleryTitle">相册</strong>
-            <span id="galleryCounter">1 / 4</span>
-          </figcaption>
-          <p id="galleryEmpty">相册</p>
-        </figure>
+        <div class="gallery-layout">
+          <figure class="gallery-frame">
+            <img id="galleryImage" alt="相册照片" />
+            <p id="galleryEmpty">相册</p>
+            <figcaption>
+              <strong id="galleryTitle">相册</strong>
+              <span id="galleryCounter">1 / 4</span>
+            </figcaption>
+          </figure>
+          <div class="gallery-tools" aria-label="相册管理">
+            <div id="folderTabs" class="folder-tabs" aria-label="相册文件夹"></div>
+            <div class="gallery-actions">
+              <select id="folderSelect" aria-label="选择上传文件夹"></select>
+              <button id="newFolderButton" type="button" aria-label="新建相册文件夹">新建</button>
+              <button id="authButton" type="button" aria-label="设置 GitHub 上传授权">授权</button>
+              <button id="cjUploadButton" type="button" aria-label="上传照片">上传</button>
+              <button id="deletePhotoButton" type="button" aria-label="删除当前照片">删除</button>
+              <button id="exitGallery" type="button" aria-label="退出相册">退出</button>
+            </div>
+          </div>
+          <input id="cjUpload" class="upload-input" type="file" accept="image/*" multiple />
+        </div>
         <button id="galleryNext" class="gallery-nav next" type="button" aria-label="下一张">›</button>
       </section>
 

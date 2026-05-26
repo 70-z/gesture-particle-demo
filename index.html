@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>青年才俊</title>
-    <link rel="stylesheet" href="./src/styles.css?v=28" />
+    <link rel="stylesheet" href="./src/styles.css?v=29" />
   </head>
   <body>
     <main id="app">
@@ -74,10 +74,21 @@
         <button id="numberThree" type="button" aria-label="切换到 Silence牛逼克拉斯">3</button>
         <button id="defaultGalleryButton" type="button" aria-label="打开相册">相册</button>
         <button id="cameraRetry" type="button" aria-label="打开摄像头画面">摄像头</button>
+        <button id="featureButton" type="button" aria-label="打开功能面板">功能</button>
         <label>
           <span>扩散</span>
           <input id="spreadControl" type="range" min="0" max="100" value="36" />
         </label>
+      </section>
+
+      <section id="featurePanel" class="feature-panel" aria-label="功能面板" aria-hidden="true">
+        <button data-feature-shape="heart" type="button">爱心</button>
+        <button data-feature-shape="lightning" type="button">闪电</button>
+        <button data-feature-shape="crystal" type="button">桃心晶体</button>
+        <button data-feature-shape="tomorrow" type="button">明日世界</button>
+        <button data-feature-shape="dragon" type="button">素龙</button>
+        <button data-feature-shape="sphere" type="button">球体</button>
+        <button id="featureExit" type="button">退出</button>
       </section>
 
       <section id="gallery" class="gallery" aria-label="相册" aria-hidden="true">
@@ -118,6 +129,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=34"></script>
+    <script type="module" src="./src/main.js?v=35"></script>
   </body>
 </html>

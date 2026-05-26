@@ -24,6 +24,14 @@ const DEFAULT_IMAGES = [
   "./assets/gallery/3.jpg",
   "./assets/gallery/4.jpg",
 ];
+const FEATURE_LABELS = {
+  heart: "爱心",
+  lightning: "闪电",
+  crystal: "桃心晶体",
+  tomorrow: "明日世界",
+  dragon: "素龙",
+  sphere: "球体",
+};
 
 const folders = loadStoredFolders();
 
@@ -42,6 +50,9 @@ const spreadControl = document.querySelector("#spreadControl");
 const textOneButton = document.querySelector("#textOne");
 const textTwoButton = document.querySelector("#textTwo");
 const numberThreeButton = document.querySelector("#numberThree");
+const featureButton = document.querySelector("#featureButton");
+const featurePanel = document.querySelector("#featurePanel");
+const featureExitButton = document.querySelector("#featureExit");
 const exitGalleryButton = document.querySelector("#exitGallery");
 const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
 const newFolderButton = document.querySelector("#newFolderButton");
@@ -88,6 +99,14 @@ const shapeTargets = {
   one: makeTextTargets(TEXTS.one),
   two: makeTextTargets(TEXTS.two),
   three: makeTextTargets(TEXTS.three),
+};
+const featureTargets = {
+  heart: makeFilledHeartTargets(),
+  lightning: makeFilledLightningTargets(),
+  crystal: makeCrystalHeartTargets(),
+  tomorrow: makeTomorrowWorldTargets(),
+  dragon: makeSulongDragonTargets(),
+  sphere: makeSphereTargets(),
 };
 const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
@@ -144,6 +163,7 @@ let galleryIndex = 0;
 let galleryPhotoToken = 0;
 let lastPhotoSwitchAt = 0;
 let lastGalleryToggleAt = 0;
+let activeFeature = null;
 
 setActiveShape("one");
 resize();
@@ -152,6 +172,13 @@ window.addEventListener("resize", resize);
 textOneButton.addEventListener("click", () => handleNumberAction(1, "点击 1"));
 textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"));
 numberThreeButton.addEventListener("click", () => handleNumberAction(3, "点击 3"));
+featureButton.addEventListener("click", () => setFeaturePanelOpen(!featurePanel.classList.contains("open")));
+featureExitButton.addEventListener("click", () => exitFeature("已退出功能。"));
+featurePanel.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-feature-shape]");
+  if (!button) return;
+  setFeatureShape(button.dataset.featureShape);
+});
 exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
 defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey));
 newFolderButton.addEventListener("click", createFolder);
@@ -176,6 +203,10 @@ window.addEventListener("keydown", (event) => {
     handleNumberAction(Number(event.key), `键盘 ${event.key}`);
     return;
   }
+  if (event.key === "Escape" && activeFeature) {
+    exitFeature("已退出功能。");
+    return;
+  }
   if (event.key === "Escape") closeGallery("键盘退出相册");
   if (event.key === "ArrowLeft" && galleryState === "open") switchGalleryPhoto(-1);
   if (event.key === "ArrowRight" && galleryState === "open") switchGalleryPhoto(1);
@@ -183,6 +214,7 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("pointermove", (event) => {
   if (hasHands) return;
+  if (activeFeature) return;
   targetSpread = Math.min(1, Math.max(0, event.clientX / window.innerWidth));
   spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = spreadLabel(targetSpread);
@@ -379,6 +411,15 @@ function handleHandResults(results) {
     return;
   }
 
+  if (activeFeature) {
+    gestureStatus.textContent = `功能 ${FEATURE_LABELS[activeFeature]}`;
+    targetSpread = Math.max(handSpread, openness * 0.72);
+    targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
+    spreadControl.value = String(Math.round(targetSpread * 100));
+    motionStatus.textContent = spreadLabel(targetSpread);
+    return;
+  }
+
   if (primaryCount >= 1 && primaryCount <= 3) {
     setActiveShape(shapeKeyFromNumber(primaryCount));
   } else {
@@ -486,7 +527,7 @@ function animate() {
   const textGestureRecentlySeen = performance.now() - lastTextGestureAt < 1600;
   rotationBlend += ((gestureRecentlySeen || galleryState === "open" ? 0 : 1) - rotationBlend) * 0.075;
   const expanding = targetSpread > 0.18;
-  const stableTarget = galleryState === "open" ? 0.58 : textGestureRecentlySeen && !expanding ? 1 : 0;
+  const stableTarget = galleryState === "open" ? 0.58 : activeFeature && !expanding ? 0.92 : textGestureRecentlySeen && !expanding ? 1 : 0;
   stableTextBlend += (stableTarget - stableTextBlend) * 0.14;
   smoothedSpread += (targetSpread - smoothedSpread) * (expanding ? 0.18 : 0.1);
   const stillness = stableTextBlend;
@@ -678,6 +719,232 @@ function makeAlbumHaloTargets() {
   return targets;
 }
 
+function makeFilledHeartTargets() {
+  return makeFilled2DTargets((x, y) => {
+    const nx = x / 3.35;
+    const ny = (y + 0.22) / 2.95;
+    return Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * ny * ny * ny <= 0;
+  }, {
+    scale: 1.08,
+    zRange: 1.05,
+    jitter: 0.045,
+  });
+}
+
+function makeFilledLightningTargets() {
+  const bolt = [
+    [-0.34, 1.16],
+    [0.45, 1.16],
+    [0.1, 0.23],
+    [0.58, 0.23],
+    [-0.34, -1.28],
+    [-0.08, -0.36],
+    [-0.56, -0.36],
+  ];
+  return makePolygonTargets(bolt, {
+    scaleX: 6.35,
+    scaleY: 3.65,
+    zRange: 0.78,
+    jitter: 0.038,
+  });
+}
+
+function makeCrystalHeartTargets() {
+  const targets = new Float32Array(PARTICLE_COUNT * 3);
+  const lightning = [
+    [-0.18, 0.88],
+    [0.34, 0.88],
+    [0.06, 0.16],
+    [0.42, 0.16],
+    [-0.28, -0.86],
+    [-0.04, -0.22],
+    [-0.42, -0.22],
+  ];
+
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    let x = 0;
+    let y = 0;
+    let hit = false;
+    for (let attempt = 0; attempt < 220; attempt += 1) {
+      x = rand(-3.5, 3.5);
+      y = rand(-2.95, 2.85);
+      const nx = x / 3.25;
+      const ny = (y + 0.12) / 2.78;
+      const heart = Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * ny * ny * ny <= 0;
+      if (!heart) continue;
+      const lx = x / 3.9;
+      const ly = y / 2.7;
+      if (pointInPolygon(lx, ly, lightning) && i % 4 !== 0) continue;
+      hit = true;
+      break;
+    }
+    if (!hit) {
+      x = rand(-2.2, 2.2);
+      y = rand(-1.8, 2.1);
+    }
+
+    const block = 0.34;
+    const facetedX = Math.round(x / block) * block + rand(-0.07, 0.07);
+    const facetedY = Math.round(y / block) * block + rand(-0.07, 0.07);
+    const ridge = Math.abs(facetedX) * 0.12 + Math.max(0, 1.7 - Math.abs(facetedY)) * 0.06;
+    targets[offset] = facetedX;
+    targets[offset + 1] = facetedY;
+    targets[offset + 2] = rand(-0.84, 0.84) + ridge;
+  }
+  return targets;
+}
+
+function makeTomorrowWorldTargets() {
+  return makeFilled2DTargets((x, y) => {
+    const cx = x / 1.06;
+    const cy = y / 1.06;
+    const center = capsuleDistance(cx, cy, 0, -1.9, 0, 1.9) < 0.2;
+    const ring = Math.abs(Math.hypot(cx, cy + 0.18) - 1.56) < 0.26;
+    const upperRing = Math.abs(Math.hypot(cx * 1.08, (cy - 1.03) * 1.22) - 0.68) < 0.22;
+    const lowerRing = Math.abs(Math.hypot(cx * 1.04, (cy + 1.12) * 1.12) - 0.74) < 0.22;
+    const diagonalA = capsuleDistance(cx, cy, -1.55, -1.08, 1.5, 1.1) < 0.18;
+    const diagonalB = capsuleDistance(cx, cy, -1.45, 1.12, 1.56, -1.06) < 0.18;
+    const nodes = [
+      [-1.3, 1.04],
+      [1.28, 1.04],
+      [-1.28, -1.08],
+      [1.28, -1.08],
+      [0, 2.02],
+      [0, -2.02],
+    ].some(([nx, ny]) => Math.hypot(cx - nx, cy - ny) < 0.34);
+    return center || ring || upperRing || lowerRing || diagonalA || diagonalB || nodes;
+  }, {
+    scale: 1.42,
+    zRange: 0.78,
+    jitter: 0.04,
+  });
+}
+
+function makeSulongDragonTargets() {
+  return makeFilled2DTargets((x, y) => {
+    const body = ellipseContains(x, y, -0.46, -0.08, 2.08, 1.28);
+    const head = ellipseContains(x, y, 1.62, 0.58, 1.15, 0.9);
+    const cheek = ellipseContains(x, y, 2.18, 0.3, 0.54, 0.44);
+    const tail = capsuleDistance(x, y, -2.05, -0.2, -3.2, 0.8) < 0.44
+      || ellipseContains(x, y, -3.28, 0.9, 0.54, 0.38);
+    const legA = ellipseContains(x, y, -0.92, -1.1, 0.42, 0.58);
+    const legB = ellipseContains(x, y, 0.56, -1.08, 0.42, 0.58);
+    const arm = ellipseContains(x, y, 1.18, -0.14, 0.32, 0.48);
+    const hornA = pointInPolygon(x, y, [[1.22, 1.25], [1.52, 1.9], [1.78, 1.2]]);
+    const hornB = pointInPolygon(x, y, [[1.9, 1.18], [2.38, 1.66], [2.28, 0.98]]);
+    const spikes = [-1.55, -0.82, -0.12, 0.55].some((sx) => (
+      pointInPolygon(x, y, [[sx - 0.26, 1.05], [sx + 0.08, 1.62], [sx + 0.38, 0.98]])
+    ));
+    return body || head || cheek || tail || legA || legB || arm || hornA || hornB || spikes;
+  }, {
+    scale: 1.32,
+    zRange: 0.9,
+    jitter: 0.04,
+  });
+}
+
+function makeSphereTargets() {
+  const targets = new Float32Array(PARTICLE_COUNT * 3);
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    const shell = i > PARTICLE_COUNT * 0.72;
+    const radius = shell ? rand(3.55, 3.7) : Math.cbrt(Math.random()) * 2.58;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(rand(-1, 1));
+    targets[offset] = Math.sin(phi) * Math.cos(theta) * radius;
+    targets[offset + 1] = Math.cos(phi) * radius;
+    targets[offset + 2] = Math.sin(phi) * Math.sin(theta) * radius;
+  }
+  return targets;
+}
+
+function makeFilled2DTargets(test, options = {}) {
+  const targets = new Float32Array(PARTICLE_COUNT * 3);
+  const scale = options.scale ?? 1;
+  const zRange = options.zRange ?? 0.7;
+  const jitter = options.jitter ?? 0.035;
+  const minX = options.minX ?? -3.6;
+  const maxX = options.maxX ?? 3.6;
+  const minY = options.minY ?? -2.8;
+  const maxY = options.maxY ?? 2.8;
+
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    let x = 0;
+    let y = 0;
+    let hit = false;
+    for (let attempt = 0; attempt < 260; attempt += 1) {
+      x = rand(minX, maxX);
+      y = rand(minY, maxY);
+      if (test(x, y)) {
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) {
+      x = rand(-0.5, 0.5);
+      y = rand(-0.5, 0.5);
+    }
+    targets[offset] = x * scale + rand(-jitter, jitter);
+    targets[offset + 1] = y * scale + rand(-jitter, jitter);
+    targets[offset + 2] = rand(-zRange, zRange);
+  }
+  return targets;
+}
+
+function makePolygonTargets(points, options = {}) {
+  const xs = points.map((point) => point[0]);
+  const ys = points.map((point) => point[1]);
+  const targets = makeFilled2DTargets((x, y) => pointInPolygon(x, y, points), {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+    scale: 1,
+    zRange: options.zRange,
+    jitter: options.jitter,
+  });
+  const scaleX = options.scaleX ?? 1;
+  const scaleY = options.scaleY ?? 1;
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    targets[offset] *= scaleX;
+    targets[offset + 1] *= scaleY;
+  }
+  return targets;
+}
+
+function pointInPolygon(x, y, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const xi = polygon[i][0];
+    const yi = polygon[i][1];
+    const xj = polygon[j][0];
+    const yj = polygon[j][1];
+    const intersect = ((yi > y) !== (yj > y))
+      && x < ((xj - xi) * (y - yi)) / (yj - yi || 0.000001) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function ellipseContains(x, y, cx, cy, rx, ry) {
+  return ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+}
+
+function capsuleDistance(px, py, ax, ay, bx, by) {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+  const len2 = abx * abx + aby * aby || 1;
+  const t = THREE.MathUtils.clamp((apx * abx + apy * aby) / len2, 0, 1);
+  const x = ax + abx * t;
+  const y = ay + aby * t;
+  return Math.hypot(px - x, py - y);
+}
+
 function getDefaultParticleColor(i, elapsed = 0) {
   const tone = i / PARTICLE_COUNT;
   const shimmer = (Math.sin(elapsed * 1.8 + i * 0.017) + 1) * 0.5;
@@ -709,6 +976,7 @@ function makeScatterTargets() {
 }
 
 function handleNumberAction(number, messagePrefix = "切换") {
+  if (activeFeature) exitFeature();
   if (galleryState === "open") {
     showToast("相册图片已取消手势和数字切换，请使用左右箭头。");
     return;
@@ -728,6 +996,8 @@ function shapeKeyFromNumber(number) {
 
 function setActiveShape(shape, message) {
   if (galleryState === "open") return;
+  activeFeature = null;
+  setFeaturePanelOpen(false);
   galleryState = "closed";
   activeShape = shape;
   activeTargets = shapeTargets[shape];
@@ -735,6 +1005,8 @@ function setActiveShape(shape, message) {
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
   numberThreeButton.classList.toggle("active", shape === "three");
+  featureButton.classList.remove("active");
+  updateFeatureButtonState();
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
@@ -744,11 +1016,56 @@ function setActiveShape(shape, message) {
   if (message) showToast(message);
 }
 
+function setFeaturePanelOpen(open) {
+  featurePanel.classList.toggle("open", open);
+  featurePanel.setAttribute("aria-hidden", String(!open));
+  featureButton.classList.toggle("active", open || !!activeFeature);
+}
+
+function setFeatureShape(shape) {
+  if (!featureTargets[shape]) return;
+  if (galleryState === "open") closeGallery();
+  activeFeature = shape;
+  activeTargets = featureTargets[shape];
+  targetSpread = 0;
+  smoothedSpread = Math.min(smoothedSpread, 0.18);
+  lastTextGestureAt = performance.now();
+  textOneButton.classList.remove("active");
+  textTwoButton.classList.remove("active");
+  numberThreeButton.classList.remove("active");
+  defaultGalleryButton.classList.remove("active");
+  exitGalleryButton.classList.remove("active");
+  setFeaturePanelOpen(true);
+  updateFeatureButtonState();
+  gestureStatus.textContent = `功能 ${FEATURE_LABELS[shape]}`;
+  motionStatus.textContent = "聚合";
+  showToast(`已切换到${FEATURE_LABELS[shape]}。`);
+}
+
+function exitFeature(message) {
+  if (!activeFeature) {
+    setFeaturePanelOpen(false);
+    return;
+  }
+  activeFeature = null;
+  setFeaturePanelOpen(false);
+  setActiveShape(activeShape || "one", message);
+}
+
+function updateFeatureButtonState() {
+  featurePanel.querySelectorAll("[data-feature-shape]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.featureShape === activeFeature);
+  });
+}
+
 function numberFromShapeKey(shape) {
   return { one: 1, two: 2, three: 3 }[shape] ?? 1;
 }
 
 function openGallery(folderKey = activeFolderKey) {
+  activeFeature = null;
+  setFeaturePanelOpen(false);
+  updateFeatureButtonState();
   activeFolderKey = folders[folderKey] ? folderKey : DEFAULT_FOLDER_KEY;
   galleryState = "open";
   galleryIndex = Math.min(galleryIndex, Math.max(0, getActiveImages().length - 1));
@@ -760,6 +1077,7 @@ function openGallery(folderKey = activeFolderKey) {
   textOneButton.classList.remove("active");
   textTwoButton.classList.remove("active");
   numberThreeButton.classList.remove("active");
+  featureButton.classList.remove("active");
   exitGalleryButton.classList.add("active");
   defaultGalleryButton.classList.add("active");
   motionStatus.textContent = "相册";
@@ -885,6 +1203,7 @@ function updateNumberButtonState() {
   textOneButton.classList.remove("active");
   textTwoButton.classList.remove("active");
   numberThreeButton.classList.remove("active");
+  featureButton.classList.toggle("active", !!activeFeature);
   exitGalleryButton.classList.toggle("active", isOpen);
   defaultGalleryButton.classList.toggle("active", isOpen);
   deletePhotoButton.classList.toggle("active", isOpen && getActiveImages().length > 0);

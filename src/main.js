@@ -24,6 +24,10 @@ const DEFAULT_IMAGES = [
   "./assets/gallery/3.jpg",
   "./assets/gallery/4.jpg",
 ];
+const FEATURE_IMAGES = {
+  tomorrow: "./assets/features/tomorrow-world.jpg",
+  dragon: "./assets/features/sulong.jpg",
+};
 const FEATURE_LABELS = {
   heart: "爱心",
   lightning: "闪电",
@@ -104,10 +108,11 @@ const featureTargets = {
   heart: makeFilledHeartTargets(),
   lightning: makeFilledLightningTargets(),
   crystal: makeCrystalHeartTargets(),
-  tomorrow: makeTomorrowWorldTargets(),
-  dragon: makeSulongDragonTargets(),
+  tomorrow: makeImagePlaceholderTargets(),
+  dragon: makeImagePlaceholderTargets(),
   sphere: makeSphereTargets(),
 };
+loadFeatureImageTargets();
 const albumTargetCache = new Map();
 const scatterTargets = makeScatterTargets();
 let activeTargets = shapeTargets.one;
@@ -720,14 +725,151 @@ function makeAlbumHaloTargets() {
 }
 
 function makeFilledHeartTargets() {
-  return makeFilled2DTargets((x, y) => {
-    const nx = x / 3.35;
-    const ny = (y + 0.22) / 2.95;
-    return Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * ny * ny * ny <= 0;
-  }, {
-    scale: 1.08,
-    zRange: 1.05,
+  return makeParametricHeartTargets({
+    scale: 0.34,
+    yOffset: -0.52,
+    zRange: 1.08,
     jitter: 0.045,
+  });
+}
+
+function makeParametricHeartTargets(options = {}) {
+  const targets = new Float32Array(PARTICLE_COUNT * 3);
+  const scale = options.scale ?? 0.34;
+  const yOffset = options.yOffset ?? -0.48;
+  const zRange = options.zRange ?? 0.95;
+  const jitter = options.jitter ?? 0.04;
+
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    const t = Math.random() * Math.PI * 2;
+    const radius = Math.sqrt(Math.random());
+    const outlineX = 16 * Math.sin(t) ** 3;
+    const outlineY = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    targets[offset] = outlineX * radius * scale + rand(-jitter, jitter);
+    targets[offset + 1] = outlineY * radius * scale + yOffset + rand(-jitter, jitter);
+    targets[offset + 2] = rand(-zRange, zRange);
+  }
+  return targets;
+}
+
+function makeParametricHeartPoint(scale = 0.34, yOffset = -0.48) {
+  const t = Math.random() * Math.PI * 2;
+  const radius = Math.sqrt(Math.random());
+  const outlineX = 16 * Math.sin(t) ** 3;
+  const outlineY = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+  return [
+    outlineX * radius * scale,
+    outlineY * radius * scale + yOffset,
+  ];
+}
+
+function loadFeatureImageTargets() {
+  loadImageTargets(FEATURE_IMAGES.tomorrow, {
+    invert: true,
+    threshold: 132,
+    scaleX: 7.35,
+    scaleY: 6.6,
+    yOffset: -0.06,
+    zRange: 0.58,
+    floatRatio: 0.08,
+  }).then((targets) => {
+    featureTargets.tomorrow = targets;
+    if (activeFeature === "tomorrow") activeTargets = targets;
+  }).catch((error) => console.warn(error));
+
+  loadImageTargets(FEATURE_IMAGES.dragon, {
+    preferPink: true,
+    threshold: 64,
+    scaleX: 7.45,
+    scaleY: 6.05,
+    yOffset: -0.12,
+    zRange: 0.62,
+    floatRatio: 0.08,
+  }).then((targets) => {
+    featureTargets.dragon = targets;
+    if (activeFeature === "dragon") activeTargets = targets;
+  }).catch((error) => console.warn(error));
+}
+
+function loadImageTargets(src, options = {}) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(makeImageTargets(image, options));
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+function makeImageTargets(image, options = {}) {
+  const width = options.width ?? 460;
+  const height = options.height ?? 460;
+  const imageCanvas = document.createElement("canvas");
+  imageCanvas.width = width;
+  imageCanvas.height = height;
+  const ctx = imageCanvas.getContext("2d", { willReadFrequently: true });
+  ctx.clearRect(0, 0, width, height);
+  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+  const drawWidth = image.naturalWidth * scale;
+  const drawHeight = image.naturalHeight * scale;
+  const dx = (width - drawWidth) / 2;
+  const dy = (height - drawHeight) / 2;
+  ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
+  const data = ctx.getImageData(0, 0, width, height).data;
+  const points = [];
+  const step = options.step ?? 2;
+  const threshold = options.threshold ?? 118;
+
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const offset = (y * width + x) * 4;
+      const r = data[offset];
+      const g = data[offset + 1];
+      const b = data[offset + 2];
+      const alpha = data[offset + 3];
+      if (alpha < 24) continue;
+      const brightness = (r + g + b) / 3;
+      const pinkScore = r - Math.max(g, b) * 0.58 + Math.max(0, b - g) * 0.22;
+      const chosen = options.preferPink ? pinkScore > threshold : options.invert ? brightness < threshold : brightness > threshold;
+      if (!chosen) continue;
+      points.push([
+        (x / width - 0.5) * (options.scaleX ?? 7),
+        (0.5 - y / height) * (options.scaleY ?? 6) + (options.yOffset ?? 0),
+      ]);
+    }
+  }
+
+  if (!points.length) return makeImagePlaceholderTargets();
+  const targets = new Float32Array(PARTICLE_COUNT * 3);
+  const shapedCount = Math.floor(PARTICLE_COUNT * (1 - (options.floatRatio ?? 0.08)));
+  for (let i = 0; i < PARTICLE_COUNT; i += 1) {
+    const offset = i * 3;
+    if (i < shapedCount) {
+      const point = points[i % points.length];
+      targets[offset] = point[0] + rand(-0.025, 0.025);
+      targets[offset + 1] = point[1] + rand(-0.025, 0.025);
+      targets[offset + 2] = rand(-(options.zRange ?? 0.56), options.zRange ?? 0.56);
+    } else {
+      const halo = makeTextFloatPoint(0.75, 0.62, 0);
+      targets[offset] = halo[0];
+      targets[offset + 1] = halo[1];
+      targets[offset + 2] = halo[2];
+    }
+  }
+  return targets;
+}
+
+function makeImagePlaceholderTargets() {
+  return makeFilled2DTargets((x, y) => {
+    const star = capsuleDistance(x, y, 0, -2.3, 0, 2.3) < 0.22
+      || capsuleDistance(x, y, -2.2, -1.45, 2.2, 1.45) < 0.22
+      || capsuleDistance(x, y, -2.2, 1.45, 2.2, -1.45) < 0.22;
+    const core = ellipseContains(x, y, 0, 0, 0.7, 1.15);
+    return star || core;
+  }, {
+    scale: 1.25,
+    zRange: 0.6,
+    jitter: 0.04,
   });
 }
 
@@ -765,26 +907,17 @@ function makeCrystalHeartTargets() {
     const offset = i * 3;
     let x = 0;
     let y = 0;
-    let hit = false;
     for (let attempt = 0; attempt < 220; attempt += 1) {
-      x = rand(-3.5, 3.5);
-      y = rand(-2.95, 2.85);
-      const nx = x / 3.25;
-      const ny = (y + 0.12) / 2.78;
-      const heart = Math.pow(nx * nx + ny * ny - 1, 3) - nx * nx * ny * ny * ny <= 0;
-      if (!heart) continue;
+      const point = makeParametricHeartPoint(0.31, -0.5);
+      x = point[0];
+      y = point[1];
       const lx = x / 3.9;
       const ly = y / 2.7;
       if (pointInPolygon(lx, ly, lightning) && i % 4 !== 0) continue;
-      hit = true;
       break;
     }
-    if (!hit) {
-      x = rand(-2.2, 2.2);
-      y = rand(-1.8, 2.1);
-    }
 
-    const block = 0.34;
+    const block = 0.26;
     const facetedX = Math.round(x / block) * block + rand(-0.07, 0.07);
     const facetedY = Math.round(y / block) * block + rand(-0.07, 0.07);
     const ridge = Math.abs(facetedX) * 0.12 + Math.max(0, 1.7 - Math.abs(facetedY)) * 0.06;
@@ -795,61 +928,12 @@ function makeCrystalHeartTargets() {
   return targets;
 }
 
-function makeTomorrowWorldTargets() {
-  return makeFilled2DTargets((x, y) => {
-    const cx = x / 1.06;
-    const cy = y / 1.06;
-    const center = capsuleDistance(cx, cy, 0, -1.9, 0, 1.9) < 0.2;
-    const ring = Math.abs(Math.hypot(cx, cy + 0.18) - 1.56) < 0.26;
-    const upperRing = Math.abs(Math.hypot(cx * 1.08, (cy - 1.03) * 1.22) - 0.68) < 0.22;
-    const lowerRing = Math.abs(Math.hypot(cx * 1.04, (cy + 1.12) * 1.12) - 0.74) < 0.22;
-    const diagonalA = capsuleDistance(cx, cy, -1.55, -1.08, 1.5, 1.1) < 0.18;
-    const diagonalB = capsuleDistance(cx, cy, -1.45, 1.12, 1.56, -1.06) < 0.18;
-    const nodes = [
-      [-1.3, 1.04],
-      [1.28, 1.04],
-      [-1.28, -1.08],
-      [1.28, -1.08],
-      [0, 2.02],
-      [0, -2.02],
-    ].some(([nx, ny]) => Math.hypot(cx - nx, cy - ny) < 0.34);
-    return center || ring || upperRing || lowerRing || diagonalA || diagonalB || nodes;
-  }, {
-    scale: 1.42,
-    zRange: 0.78,
-    jitter: 0.04,
-  });
-}
-
-function makeSulongDragonTargets() {
-  return makeFilled2DTargets((x, y) => {
-    const body = ellipseContains(x, y, -0.46, -0.08, 2.08, 1.28);
-    const head = ellipseContains(x, y, 1.62, 0.58, 1.15, 0.9);
-    const cheek = ellipseContains(x, y, 2.18, 0.3, 0.54, 0.44);
-    const tail = capsuleDistance(x, y, -2.05, -0.2, -3.2, 0.8) < 0.44
-      || ellipseContains(x, y, -3.28, 0.9, 0.54, 0.38);
-    const legA = ellipseContains(x, y, -0.92, -1.1, 0.42, 0.58);
-    const legB = ellipseContains(x, y, 0.56, -1.08, 0.42, 0.58);
-    const arm = ellipseContains(x, y, 1.18, -0.14, 0.32, 0.48);
-    const hornA = pointInPolygon(x, y, [[1.22, 1.25], [1.52, 1.9], [1.78, 1.2]]);
-    const hornB = pointInPolygon(x, y, [[1.9, 1.18], [2.38, 1.66], [2.28, 0.98]]);
-    const spikes = [-1.55, -0.82, -0.12, 0.55].some((sx) => (
-      pointInPolygon(x, y, [[sx - 0.26, 1.05], [sx + 0.08, 1.62], [sx + 0.38, 0.98]])
-    ));
-    return body || head || cheek || tail || legA || legB || arm || hornA || hornB || spikes;
-  }, {
-    scale: 1.32,
-    zRange: 0.9,
-    jitter: 0.04,
-  });
-}
-
 function makeSphereTargets() {
   const targets = new Float32Array(PARTICLE_COUNT * 3);
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
     const offset = i * 3;
     const shell = i > PARTICLE_COUNT * 0.72;
-    const radius = shell ? rand(3.55, 3.7) : Math.cbrt(Math.random()) * 2.58;
+    const radius = shell ? rand(4.65, 4.9) : Math.cbrt(Math.random()) * 2.58;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(rand(-1, 1));
     targets[offset] = Math.sin(phi) * Math.cos(theta) * radius;

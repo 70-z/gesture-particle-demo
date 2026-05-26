@@ -75,18 +75,9 @@
         <button id="defaultGalleryButton" type="button" aria-label="打开相册">相册</button>
         <button id="cameraRetry" type="button" aria-label="打开摄像头画面">摄像头</button>
         <button id="featureButton" type="button" aria-label="打开功能面板">功能</button>
-        <button id="sensitivityButton" type="button" aria-label="打开灵敏度设置">扩散</button>
-      </section>
-
-      <section id="sensitivityPanel" class="sensitivity-panel" aria-label="灵敏度设置" aria-hidden="true">
-        <div class="sensitivity-tabs">
-          <button id="rotationSensitivityButton" class="active" type="button">旋转</button>
-          <button id="spreadSensitivityButton" type="button">扩散</button>
-        </div>
         <label>
-          <span id="sensitivityLabel">旋转灵敏度</span>
-          <input id="sensitivityControl" type="range" min="0" max="100" value="62" />
-          <strong id="sensitivityValue">62</strong>
+          <span>扩散</span>
+          <input id="spreadControl" type="range" min="0" max="100" value="36" />
         </label>
       </section>
 
@@ -97,16 +88,7 @@
         <button data-feature-shape="tomorrow" type="button">明日世界</button>
         <button data-feature-shape="dragon" type="button">素龙</button>
         <button data-feature-shape="sphere" type="button">球体</button>
-        <button id="colorButton" type="button">颜色</button>
         <button id="featureExit" type="button">退出</button>
-        <div id="colorPalette" class="color-palette" aria-label="主题颜色" hidden>
-          <button data-theme-color="blue" type="button"><span style="--swatch:#4da3ff"></span>蓝色</button>
-          <button data-theme-color="green" type="button"><span style="--swatch:#4ee08a"></span>绿色</button>
-          <button data-theme-color="red" type="button"><span style="--swatch:#ff5b6e"></span>红色</button>
-          <button data-theme-color="yellow" type="button"><span style="--swatch:#ffd84d"></span>黄色</button>
-          <button data-theme-color="purple" type="button"><span style="--swatch:#b56cff"></span>紫色</button>
-          <button data-theme-color="pink" type="button"><span style="--swatch:#ff5da8"></span>粉色</button>
-        </div>
       </section>
 
       <section id="gallery" class="gallery" aria-label="相册" aria-hidden="true">
@@ -147,6 +129,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=38"></script>
+    <script type="module" src="./src/main.js?v=39"></script>
   </body>
 </html>

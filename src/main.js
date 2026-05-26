@@ -7,9 +7,6 @@ const GITHUB_TOKEN_KEY = "gestureParticleGithubToken";
 const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const STATUS_COLLAPSED_KEY = "gestureParticleStatusCollapsed";
 const CAMERA_PREVIEW_COLLAPSED_KEY = "gestureParticleCameraPanelCollapsed";
-const THEME_COLOR_KEY = "gestureParticleThemeColor";
-const SPREAD_SENSITIVITY_KEY = "gestureParticleSpreadSensitivity";
-const ROTATION_SENSITIVITY_KEY = "gestureParticleRotationSensitivity";
 const DEFAULT_FOLDER_KEY = "20260509";
 const CJ_FOLDER_KEY = "cj";
 const GITHUB_OWNER = "70-z";
@@ -17,9 +14,9 @@ const GITHUB_REPO = "qingniancaijun";
 const GITHUB_BRANCH = "main";
 const MANIFEST_PATH = "assets/gallery/manifest.json";
 const TEXTS = {
-  one: "闈掑勾鎵嶄繆",
-  two: "鑻忛煶鍞編锛岀埍娉蜂笉鎮?,
-  three: "Silence鐗涢€煎厠鎷夋柉",
+  one: "青年才俊",
+  two: "苏音唯美，爱泷不悔",
+  three: "Silence牛逼克拉斯",
 };
 const DEFAULT_IMAGES = [
   "./assets/gallery/1.jpg",
@@ -32,21 +29,12 @@ const FEATURE_IMAGES = {
   dragon: "./assets/features/sulong.jpg",
 };
 const FEATURE_LABELS = {
-  heart: "鐖卞績",
-  lightning: "闂數",
-  crystal: "妗冨績鏅朵綋",
-  tomorrow: "鏄庢棩涓栫晫",
-  dragon: "绱犻緳",
-  sphere: "鐞冧綋",
-};
-
-const THEME_PRESETS = {
-  pink: ["#ff5da8", "#ff8ac6", "#bf2f74", "#ffd1e8", "#100612", 0.925],
-  blue: ["#4da3ff", "#8fd2ff", "#2863d8", "#caecff", "#06101e", 0.58],
-  green: ["#4ee08a", "#9affbd", "#159a55", "#caffdd", "#06140d", 0.39],
-  red: ["#ff5b6e", "#ff9aa6", "#c9273d", "#ffd1d6", "#130509", 0.985],
-  yellow: ["#ffd84d", "#ffe98f", "#c49316", "#fff1ba", "#120d04", 0.14],
-  purple: ["#b56cff", "#d4a3ff", "#7c34cf", "#ead2ff", "#0e0616", 0.765],
+  heart: "爱心",
+  lightning: "闪电",
+  crystal: "桃心晶体",
+  tomorrow: "明日世界",
+  dragon: "素龙",
+  sphere: "球体",
 };
 
 const folders = loadStoredFolders();
@@ -62,21 +50,13 @@ const motionStatus = document.querySelector("#motionStatus");
 const debugStatus = document.querySelector("#debugStatus");
 const statusPanel = document.querySelector("#statusPanel");
 const statusToggle = document.querySelector("#statusToggle");
-const sensitivityButton = document.querySelector("#sensitivityButton");
-const sensitivityPanel = document.querySelector("#sensitivityPanel");
-const rotationSensitivityButton = document.querySelector("#rotationSensitivityButton");
-const spreadSensitivityButton = document.querySelector("#spreadSensitivityButton");
-const sensitivityControl = document.querySelector("#sensitivityControl");
-const sensitivityLabel = document.querySelector("#sensitivityLabel");
-const sensitivityValue = document.querySelector("#sensitivityValue");
+const spreadControl = document.querySelector("#spreadControl");
 const textOneButton = document.querySelector("#textOne");
 const textTwoButton = document.querySelector("#textTwo");
 const numberThreeButton = document.querySelector("#numberThree");
 const featureButton = document.querySelector("#featureButton");
 const featurePanel = document.querySelector("#featurePanel");
 const featureExitButton = document.querySelector("#featureExit");
-const colorButton = document.querySelector("#colorButton");
-const colorPalette = document.querySelector("#colorPalette");
 const exitGalleryButton = document.querySelector("#exitGallery");
 const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
 const newFolderButton = document.querySelector("#newFolderButton");
@@ -166,10 +146,8 @@ const material = new THREE.PointsMaterial({
 const points = new THREE.Points(geometry, material);
 group.add(points);
 
-let spreadSensitivity = loadStoredNumber(SPREAD_SENSITIVITY_KEY, 42);
-let rotationSensitivity = loadStoredNumber(ROTATION_SENSITIVITY_KEY, 62);
-let sensitivityMode = "rotation";
-let activeTheme = localStorage.getItem(THEME_COLOR_KEY) || "pink";
+const SPREAD_RESPONSE = 0.62;
+const HAND_ROTATION_LIMIT = 0.42;
 let activeShape = "one";
 let activeFolderKey = DEFAULT_FOLDER_KEY;
 let targetSpread = 0.36;
@@ -203,29 +181,18 @@ let activeFeature = null;
 setActiveShape("one");
 resize();
 window.addEventListener("resize", resize);
-applyTheme(activeTheme);
-updateSensitivityPanel();
 
-textOneButton.addEventListener("click", () => handleNumberAction(1, "鐐瑰嚮 1"));
-textTwoButton.addEventListener("click", () => handleNumberAction(2, "鐐瑰嚮 2"));
-numberThreeButton.addEventListener("click", () => handleNumberAction(3, "鐐瑰嚮 3"));
+textOneButton.addEventListener("click", () => handleNumberAction(1, "点击 1"));
+textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"));
+numberThreeButton.addEventListener("click", () => handleNumberAction(3, "点击 3"));
 featureButton.addEventListener("click", () => setFeaturePanelOpen(!featurePanel.classList.contains("open")));
-featureExitButton.addEventListener("click", () => exitFeature("宸查€€鍑哄姛鑳姐€?));
+featureExitButton.addEventListener("click", () => exitFeature("已退出功能。"));
 featurePanel.addEventListener("click", (event) => {
   const button = event.target.closest("[data-feature-shape]");
   if (!button) return;
   setFeatureShape(button.dataset.featureShape);
 });
-colorButton.addEventListener("click", () => {
-  colorPalette.hidden = !colorPalette.hidden;
-  colorButton.classList.toggle("active", !colorPalette.hidden);
-});
-colorPalette.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-theme-color]");
-  if (!button) return;
-  applyTheme(button.dataset.themeColor, true);
-});
-exitGalleryButton.addEventListener("click", () => closeGallery("鐐瑰嚮閫€鍑虹浉鍐?));
+exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
 defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey));
 newFolderButton.addEventListener("click", createFolder);
 authButton.addEventListener("click", configureGithubToken);
@@ -239,31 +206,21 @@ cjUpload.addEventListener("change", handleCjUpload);
 folderSelect.addEventListener("change", () => {
   if (folders[folderSelect.value]) openGallery(folderSelect.value);
 });
-sensitivityButton.addEventListener("click", () => setSensitivityPanelOpen(!sensitivityPanel.classList.contains("open")));
-rotationSensitivityButton.addEventListener("click", () => setSensitivityMode("rotation"));
-spreadSensitivityButton.addEventListener("click", () => setSensitivityMode("spread"));
-sensitivityControl.addEventListener("input", () => {
-  const value = Number(sensitivityControl.value);
-  if (sensitivityMode === "rotation") {
-    rotationSensitivity = value;
-    localStorage.setItem(ROTATION_SENSITIVITY_KEY, String(value));
-  } else {
-    spreadSensitivity = value;
-    localStorage.setItem(SPREAD_SENSITIVITY_KEY, String(value));
-  }
-  updateSensitivityPanel();
+spreadControl.addEventListener("input", () => {
+  targetSpread = Number(spreadControl.value) / 100;
+  motionStatus.textContent = spreadLabel(targetSpread);
 });
 
 window.addEventListener("keydown", (event) => {
   if (galleryState !== "open" && ["1", "2", "3"].includes(event.key)) {
-    handleNumberAction(Number(event.key), `閿洏 ${event.key}`);
+    handleNumberAction(Number(event.key), `键盘 ${event.key}`);
     return;
   }
   if (event.key === "Escape" && activeFeature) {
-    exitFeature("宸查€€鍑哄姛鑳姐€?);
+    exitFeature("已退出功能。");
     return;
   }
-  if (event.key === "Escape") closeGallery("閿洏閫€鍑虹浉鍐?);
+  if (event.key === "Escape") closeGallery("键盘退出相册");
   if (event.key === "ArrowLeft" && galleryState === "open") switchGalleryPhoto(-1);
   if (event.key === "ArrowRight" && galleryState === "open") switchGalleryPhoto(1);
 });
@@ -271,7 +228,8 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("pointermove", (event) => {
   if (hasHands) return;
   if (activeFeature) return;
-  targetSpread = Math.min(1, Math.max(0, event.clientX / window.innerWidth)) * getSpreadResponse();
+  targetSpread = Math.min(1, Math.max(0, event.clientX / window.innerWidth));
+  spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = spreadLabel(targetSpread);
 });
 
@@ -284,15 +242,15 @@ initCameraPreviewPanel();
 
 async function setupHands({ force = false } = {}) {
   if (!window.Hands) {
-    cameraStatus.textContent = "缁勪欢鏈姞杞?;
-    showToast("鎵嬪娍缁勪欢娌℃湁鍔犺浇鎴愬姛锛岃纭缃戠粶鍙闂?jsDelivr銆?);
+    cameraStatus.textContent = "组件未加载";
+    showToast("手势组件没有加载成功，请确认网络可访问 jsDelivr。");
     return;
   }
 
   try {
     if (force) stopActiveCamera();
-    cameraStatus.textContent = "璇锋眰鎺堟潈";
-    debugStatus.textContent = "璇锋眰涓?;
+    cameraStatus.textContent = "请求授权";
+    debugStatus.textContent = "请求中";
 
     const stream = await openCameraStream();
     activeStream = stream;
@@ -302,16 +260,16 @@ async function setupHands({ force = false } = {}) {
     handsModel = handsModel ?? createHandsModel();
     handLoopRunning = true;
     pumpVideoToHands();
-    cameraStatus.textContent = "宸插紑鍚?;
+    cameraStatus.textContent = "已开启";
     const devices = await listCameraDevices();
     const trackLabel = stream.getVideoTracks()[0]?.label;
-    const name = trackLabel || devices[0]?.label || "鎽勫儚澶?;
-    debugStatus.textContent = `璁惧 ${devices.length || 1}`;
-    showToast(`鎽勫儚澶村凡杩炴帴锛?{name}銆傛櫘閫氭ā寮忔墜鍔?1 / 2 / 3 鍒囨枃瀛楋紱鐩稿唽鍐呰浣跨敤宸﹀彸绠ご鍒囧浘銆俙);
+    const name = trackLabel || devices[0]?.label || "摄像头";
+    debugStatus.textContent = `设备 ${devices.length || 1}`;
+    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 / 3 切文字；相册内请使用左右箭头切图。`);
   } catch (error) {
     cameraStatus.textContent = readableCameraError(error).title;
-    gestureStatus.textContent = "鎵嬪姩婕旂ず";
-    debugStatus.textContent = error?.name || "鏈煡閿欒";
+    gestureStatus.textContent = "手动演示";
+    debugStatus.textContent = error?.name || "未知错误";
     showToast(readableCameraError(error).message);
     console.warn(error);
   }
@@ -327,9 +285,9 @@ function initStatusPanel() {
 
 function setStatusPanelCollapsed(collapsed) {
   statusPanel.classList.toggle("collapsed", collapsed);
-  statusToggle.textContent = collapsed ? "鐘舵€? : "鏀惰捣";
+  statusToggle.textContent = collapsed ? "状态" : "收起";
   statusToggle.setAttribute("aria-expanded", String(!collapsed));
-  statusToggle.setAttribute("aria-label", collapsed ? "灞曞紑鐘舵€佹爮" : "鏀惰捣鐘舵€佹爮");
+  statusToggle.setAttribute("aria-label", collapsed ? "展开状态栏" : "收起状态栏");
   localStorage.setItem(STATUS_COLLAPSED_KEY, String(collapsed));
 }
 
@@ -344,9 +302,9 @@ function initCameraPreviewPanel() {
 function setCameraPreviewCollapsed(collapsed) {
   cameraPreview.classList.toggle("collapsed", collapsed);
   cameraPreview.setAttribute("aria-hidden", String(collapsed));
-  cameraPreviewToggle.textContent = "鏀惰捣";
+  cameraPreviewToggle.textContent = "收起";
   cameraPreviewToggle.setAttribute("aria-expanded", String(!collapsed));
-  cameraPreviewToggle.setAttribute("aria-label", "鏀惰捣鎽勫儚澶寸敾闈?);
+  cameraPreviewToggle.setAttribute("aria-label", "收起摄像头画面");
   cameraRetryButton.classList.toggle("active", !collapsed);
   localStorage.setItem(CAMERA_PREVIEW_COLLAPSED_KEY, String(collapsed ? "true" : "false"));
 }
@@ -420,25 +378,25 @@ function readableCameraError(error) {
 
   if (name === "NotAllowedError" || name === "SecurityError") {
     return {
-      title: "鏉冮檺琚嫆缁?,
-      message: "Edge 娌℃湁鑾峰緱鎽勫儚澶存潈闄愩€傝鐐瑰湴鍧€鏍忓乏渚х殑鏉冮檺鍥炬爣锛屽厑璁告憚鍍忓ご鍚庢墦寮€鎽勫儚澶撮潰鏉跨偣鈥滄鏌モ€濋噸璇曘€?,
+      title: "权限被拒绝",
+      message: "Edge 没有获得摄像头权限。请点地址栏左侧的权限图标，允许摄像头后打开摄像头面板点“检查”重试。",
     };
   }
-  if (name === "NotFoundError" || message.includes("娌℃湁妫€娴嬪埌")) {
+  if (name === "NotFoundError" || message.includes("没有检测到")) {
     return {
-      title: "鏈壘鍒拌澶?,
-      message: "娌℃湁妫€娴嬪埌鍙敤鎽勫儚澶淬€傝妫€鏌?Windows 璁剧疆 > 闅愮鍜屽畨鍏ㄦ€?> 鎽勫儚澶达紝骞跺叧闂彲鑳藉崰鐢ㄦ憚鍍忓ご鐨勮蒋浠躲€?,
+      title: "未找到设备",
+      message: "没有检测到可用摄像头。请检查 Windows 设置 > 隐私和安全性 > 摄像头，并关闭可能占用摄像头的软件。",
     };
   }
   if (name === "NotReadableError" || name === "AbortError") {
     return {
-      title: "璁惧琚崰鐢?,
-      message: "鎽勫儚澶村彲鑳芥琚井淇°€佷細璁蒋浠舵垨鍙︿竴涓祻瑙堝櫒鏍囩鍗犵敤銆傚叧闂崰鐢ㄥ悗鎵撳紑鎽勫儚澶撮潰鏉跨偣鈥滄鏌モ€濋噸璇曘€?,
+      title: "设备被占用",
+      message: "摄像头可能正被微信、会议软件或另一个浏览器标签占用。关闭占用后打开摄像头面板点“检查”重试。",
     };
   }
   return {
-    title: "杩炴帴澶辫触",
-    message: `鎽勫儚澶磋繛鎺ュけ璐ワ細${message || name || "鏈煡閿欒"}銆傚彲鍏堢敤椤甸潰鎸夐挳缁х画婕旂ず銆俙,
+    title: "连接失败",
+    message: `摄像头连接失败：${message || name || "未知错误"}。可先用页面按钮继续演示。`,
   };
 }
 
@@ -448,8 +406,8 @@ function handleHandResults(results) {
 
   if (!hands.length) {
     if (performance.now() - lastGestureAt > 800) {
-      gestureStatus.textContent = galleryState === "open" ? "鐩稿唽妯″紡" : "绛夊緟鎵嬪娍";
-      cameraStatus.textContent = "宸插紑鍚?;
+      gestureStatus.textContent = galleryState === "open" ? "相册模式" : "等待手势";
+      cameraStatus.textContent = "已开启";
     }
     targetHandRotationY *= 0.94;
     targetHandRotationX *= 0.94;
@@ -472,9 +430,10 @@ function handleHandResults(results) {
   }
 
   if (activeFeature) {
-    gestureStatus.textContent = `鍔熻兘 ${FEATURE_LABELS[activeFeature]}`;
+    gestureStatus.textContent = `功能 ${FEATURE_LABELS[activeFeature]}`;
     targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
     targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
+    spreadControl.value = String(Math.round(targetSpread * 100));
     motionStatus.textContent = spreadLabel(targetSpread);
     return;
   }
@@ -482,15 +441,16 @@ function handleHandResults(results) {
   if (primaryCount >= 1 && primaryCount <= 3) {
     setActiveShape(shapeKeyFromNumber(primaryCount));
   } else {
-    gestureStatus.textContent = `${Math.min(2, hands.length)} 鎵?/ ${primaryCount} 鎸嘸;
+    gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
   }
 
   const textGestureActive = primaryCount >= 1 && primaryCount <= 3;
   targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
   if (textGestureActive) {
-    targetSpread = handSpread > 0.34 ? THREE.MathUtils.smoothstep(handSpread, 0.34, 0.92) * getSpreadResponse() : 0;
+    targetSpread = handSpread > 0.34 ? THREE.MathUtils.smoothstep(handSpread, 0.34, 0.92) * SPREAD_RESPONSE : 0;
   }
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
+  spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = spreadLabel(targetSpread);
 }
 
@@ -581,7 +541,7 @@ function dampGestureValue(value, channel, deadZone = 0.035) {
   const currentValue = channel === "openness" ? smoothedHandOpenness : smoothedHandSpread;
   const next = Math.abs(value - currentValue) < deadZone
     ? currentValue
-    : currentValue + (value - currentValue) * getGestureDamping(channel);
+    : currentValue + (value - currentValue) * 0.18;
   const clamped = THREE.MathUtils.clamp(next, 0, 1);
   if (channel === "openness") smoothedHandOpenness = clamped;
   else smoothedHandSpread = clamped;
@@ -589,20 +549,7 @@ function dampGestureValue(value, channel, deadZone = 0.035) {
 }
 
 function softenSpread(value) {
-  return THREE.MathUtils.smoothstep(value, 0.12, 0.96) * getSpreadResponse();
-}
-
-function getSpreadResponse() {
-  return THREE.MathUtils.lerp(0.28, 1.18, spreadSensitivity / 100);
-}
-
-function getRotationLimit() {
-  return THREE.MathUtils.lerp(0.26, 1.12, rotationSensitivity / 100);
-}
-
-function getGestureDamping(channel) {
-  const value = channel === "openness" ? spreadSensitivity : rotationSensitivity;
-  return THREE.MathUtils.lerp(0.09, 0.3, value / 100);
+  return THREE.MathUtils.smoothstep(value, 0.12, 0.96) * SPREAD_RESPONSE;
 }
 
 function updateHandRotation(hands) {
@@ -613,8 +560,8 @@ function updateHandRotation(hands) {
   const rawY = THREE.MathUtils.clamp((center.y - 0.52) / 0.38, -1, 1);
   const deadX = Math.abs(rawX) < 0.11 ? 0 : rawX;
   const deadY = Math.abs(rawY) < 0.13 ? 0 : rawY;
-  targetHandRotationY = -deadX * getRotationLimit();
-  targetHandRotationX = -deadY * getRotationLimit() * 0.42;
+  targetHandRotationY = -deadX * HAND_ROTATION_LIMIT;
+  targetHandRotationX = -deadY * HAND_ROTATION_LIMIT * 0.42;
 }
 
 function animate() {
@@ -1127,8 +1074,7 @@ function capsuleDistance(px, py, ax, ay, bx, by) {
 function getDefaultParticleColor(i, elapsed = 0) {
   const tone = i / PARTICLE_COUNT;
   const shimmer = (Math.sin(elapsed * 1.8 + i * 0.017) + 1) * 0.5;
-  const baseHue = THEME_PRESETS[activeTheme]?.[5] ?? THEME_PRESETS.pink[5];
-  const hue = (baseHue + THREE.MathUtils.lerp(-0.035, 0.035, (tone * 1.7 + shimmer * 0.24) % 1) + 1) % 1;
+  const hue = THREE.MathUtils.lerp(0.885, 0.965, (tone * 1.7 + shimmer * 0.24) % 1);
   const saturation = THREE.MathUtils.lerp(0.74, 0.98, shimmer);
   const lightness = THREE.MathUtils.lerp(0.58, 0.76, Math.sin(tone * Math.PI * 6) * 0.5 + 0.5);
   return new THREE.Color().setHSL(hue, saturation, lightness);
@@ -1139,77 +1085,6 @@ function setDefaultParticleColor(i, offset) {
   colorArray[offset] = color.r;
   colorArray[offset + 1] = color.g;
   colorArray[offset + 2] = color.b;
-}
-
-function setSensitivityPanelOpen(open) {
-  if (open) {
-    featurePanel.classList.remove("open");
-    featurePanel.setAttribute("aria-hidden", "true");
-    colorPalette.hidden = true;
-    colorButton.classList.remove("active");
-    featureButton.classList.toggle("active", !!activeFeature);
-  }
-  sensitivityPanel.classList.toggle("open", open);
-  sensitivityPanel.setAttribute("aria-hidden", String(!open));
-  sensitivityButton.classList.toggle("active", open);
-}
-
-function setSensitivityMode(mode) {
-  sensitivityMode = mode;
-  updateSensitivityPanel();
-}
-
-function updateSensitivityPanel() {
-  const isRotation = sensitivityMode === "rotation";
-  const value = isRotation ? rotationSensitivity : spreadSensitivity;
-  rotationSensitivityButton.classList.toggle("active", isRotation);
-  spreadSensitivityButton.classList.toggle("active", !isRotation);
-  sensitivityLabel.textContent = isRotation ? "旋转灵敏度" : "扩散灵敏度";
-  sensitivityControl.value = String(value);
-  sensitivityValue.textContent = String(value);
-  sensitivityButton.textContent = "扩散";
-}
-
-function applyTheme(name, persist = false) {
-  const themeName = THEME_PRESETS[name] ? name : "pink";
-  const [main, rose, deep, soft, background] = THEME_PRESETS[themeName];
-  activeTheme = themeName;
-  document.documentElement.style.setProperty("--pink", main);
-  document.documentElement.style.setProperty("--rose", rose);
-  document.documentElement.style.setProperty("--deep", deep);
-  document.documentElement.style.setProperty("--soft", soft);
-  document.documentElement.style.setProperty("--panel", toAlpha(background, 0.66));
-  document.documentElement.style.setProperty("--theme-button", toAlpha(main, 0.12));
-  document.documentElement.style.setProperty("--theme-button-active", toAlpha(main, 0.24));
-  document.documentElement.style.setProperty("--theme-border", toAlpha(rose, 0.78));
-  document.documentElement.style.setProperty("--theme-glow", toAlpha(main, 0.16));
-  document.documentElement.style.setProperty("--theme-background", background);
-  renderer.setClearColor(new THREE.Color(background), 1);
-  scene.fog.color.set(background);
-  colorPalette.querySelectorAll("[data-theme-color]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.themeColor === themeName);
-  });
-  if (persist) {
-    localStorage.setItem(THEME_COLOR_KEY, themeName);
-    showToast(`已切换为${buttonThemeName(themeName)}主题。`);
-  }
-}
-
-function buttonThemeName(name) {
-  return { blue: "蓝色", green: "绿色", red: "红色", yellow: "黄色", purple: "紫色", pink: "粉色" }[name] ?? "粉色";
-}
-
-function toAlpha(hex, alpha) {
-  const value = hex.replace("#", "");
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function loadStoredNumber(key, fallback) {
-  const value = Number(localStorage.getItem(key));
-  return Number.isFinite(value) ? THREE.MathUtils.clamp(value, 0, 100) : fallback;
 }
 
 function makeScatterTargets() {
@@ -1226,18 +1101,18 @@ function makeScatterTargets() {
   return targets;
 }
 
-function handleNumberAction(number, messagePrefix = "鍒囨崲") {
+function handleNumberAction(number, messagePrefix = "切换") {
   if (activeFeature) exitFeature();
   if (galleryState === "open") {
-    showToast("鐩稿唽鍥剧墖宸插彇娑堟墜鍔垮拰鏁板瓧鍒囨崲锛岃浣跨敤宸﹀彸绠ご銆?);
+    showToast("相册图片已取消手势和数字切换，请使用左右箭头。");
     return;
   }
 
   if (number >= 1 && number <= 3) {
     const shape = shapeKeyFromNumber(number);
-    setActiveShape(shape, `${messagePrefix}锛?{TEXTS[shape]}`);
+    setActiveShape(shape, `${messagePrefix}：${TEXTS[shape]}`);
   } else {
-    showToast("鏅€氭ā寮忎笅鎵嬪娍 1/2/3 鍒囨枃瀛椼€?);
+    showToast("普通模式下手势 1/2/3 切文字。");
   }
 }
 
@@ -1263,12 +1138,11 @@ function setActiveShape(shape, message) {
   newFolderButton.classList.remove("active");
   authButton.classList.toggle("active", hasGithubToken());
   deletePhotoButton.classList.remove("active");
-  gestureStatus.textContent = `鎵嬪娍 ${numberFromShapeKey(shape)}`;
+  gestureStatus.textContent = `手势 ${numberFromShapeKey(shape)}`;
   if (message) showToast(message);
 }
 
 function setFeaturePanelOpen(open) {
-  if (open) setSensitivityPanelOpen(false);
   featurePanel.classList.toggle("open", open);
   featurePanel.setAttribute("aria-hidden", String(!open));
   featureButton.classList.toggle("active", open || !!activeFeature);
@@ -1289,9 +1163,9 @@ function setFeatureShape(shape) {
   exitGalleryButton.classList.remove("active");
   setFeaturePanelOpen(true);
   updateFeatureButtonState();
-  gestureStatus.textContent = `鍔熻兘 ${FEATURE_LABELS[shape]}`;
-  motionStatus.textContent = "鑱氬悎";
-  showToast(`宸插垏鎹㈠埌${FEATURE_LABELS[shape]}銆俙);
+  gestureStatus.textContent = `功能 ${FEATURE_LABELS[shape]}`;
+  motionStatus.textContent = "聚合";
+  showToast(`已切换到${FEATURE_LABELS[shape]}。`);
 }
 
 function exitFeature(message) {
@@ -1332,14 +1206,14 @@ function openGallery(folderKey = activeFolderKey) {
   featureButton.classList.remove("active");
   exitGalleryButton.classList.add("active");
   defaultGalleryButton.classList.add("active");
-  motionStatus.textContent = "鐩稿唽";
-  gestureStatus.textContent = "鐩稿唽妯″紡";
+  motionStatus.textContent = "相册";
+  gestureStatus.textContent = "相册模式";
   renderFolderControls();
   updateGalleryPhoto();
-  showToast(`宸叉墦寮€ ${folders[activeFolderKey].title} 鏂囦欢澶癸紝鍙€夋嫨鏂囦欢澶逛笂浼犵収鐗囥€俙);
+  showToast(`已打开 ${folders[activeFolderKey].title} 文件夹，可选择文件夹上传照片。`);
 }
 
-function closeGallery(message = "宸查€€鍑虹浉鍐屻€?) {
+function closeGallery(message = "已退出相册。") {
   if (galleryState !== "open") return;
   gallery.classList.remove("open");
   gallery.setAttribute("aria-hidden", "true");
@@ -1348,21 +1222,22 @@ function closeGallery(message = "宸查€€鍑虹浉鍐屻€?) {
   setActiveShape(activeShape || "one");
   targetSpread = 0;
   lastTextGestureAt = performance.now();
-  motionStatus.textContent = "鏀剁缉";
+  motionStatus.textContent = "收缩";
   showToast(message);
 }
 
 function updateGalleryMotion(handSpread, openness) {
-  gestureStatus.textContent = "鐩稿唽妯″紡";
+  gestureStatus.textContent = "相册模式";
   targetSpread = Math.max(0.18, softenSpread(Math.max(handSpread, openness * 0.62)));
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
-  motionStatus.textContent = "鐩稿唽";
+  spreadControl.value = String(Math.round(targetSpread * 100));
+  motionStatus.textContent = "相册";
 }
 
 function switchGalleryPhoto(direction) {
   const images = getActiveImages();
   if (!images.length) {
-    showToast("褰撳墠鐩稿唽杩樻病鏈夌収鐗囥€?);
+    showToast("当前相册还没有照片。");
     return;
   }
   galleryIndex = (galleryIndex + direction + images.length) % images.length;
@@ -1373,11 +1248,11 @@ function switchGalleryPhoto(direction) {
 function showGalleryPhoto(index, message) {
   const images = getActiveImages();
   if (!images.length) {
-    showToast(`${folders[activeFolderKey].title} 鏂囦欢澶硅繕娌℃湁鐓х墖锛岄€夋嫨鏂囦欢澶瑰悗鐐光€滀笂浼犫€濇坊鍔犮€俙);
+    showToast(`${folders[activeFolderKey].title} 文件夹还没有照片，选择文件夹后点“上传”添加。`);
     return;
   }
   if (index < 0 || index >= images.length) {
-    showToast(`褰撳墠鐩稿唽鍙湁 ${images.length} 寮犵収鐗囥€俙);
+    showToast(`当前相册只有 ${images.length} 张照片。`);
     return;
   }
   if (index === galleryIndex) {
@@ -1422,7 +1297,7 @@ function updateGalleryPhoto(direction = 0) {
   nextImage.onload = () => {
     if (token !== galleryPhotoToken) return;
     galleryImage.src = src;
-    galleryImage.alt = `${folder.title}鐓х墖 ${galleryIndex + 1}`;
+    galleryImage.alt = `${folder.title}照片 ${galleryIndex + 1}`;
     galleryImage.hidden = false;
     galleryEmpty.hidden = true;
     galleryCounter.textContent = `${galleryIndex + 1} / ${images.length}`;
@@ -1435,7 +1310,7 @@ function updateGalleryPhoto(direction = 0) {
   nextImage.onerror = () => {
     if (token !== galleryPhotoToken) return;
     galleryFrame.classList.remove("switching", "from-prev", "from-next");
-    showToast("杩欏紶鐓х墖鏆傛椂鍔犺浇澶辫触锛岃鍒囨崲涓嬩竴寮犮€?);
+    showToast("这张照片暂时加载失败，请切换下一张。");
   };
   nextImage.src = src;
 }
@@ -1469,7 +1344,7 @@ async function handleCjUpload() {
   if (!token) return;
 
   try {
-    debugStatus.textContent = "涓婁紶澶勭悊涓?;
+    debugStatus.textContent = "上传处理中";
     const uploaded = [];
     for (const file of files) {
       const compressed = await compressImageFile(file);
@@ -1483,37 +1358,37 @@ async function handleCjUpload() {
     galleryIndex = Math.max(0, folders[targetKey].images.length - uploaded.length);
     openGallery(targetKey);
     updateGalleryPhoto();
-    debugStatus.textContent = `${folders[targetKey].title} ${folders[targetKey].images.length} 寮燻;
-    showToast(`宸蹭笂浼?${uploaded.length} 寮犵収鐗囧埌 ${folders[targetKey].title}锛屽叾浠栬澶囩◢鍚庡埛鏂板嵆鍙湅鍒般€俙);
+    debugStatus.textContent = `${folders[targetKey].title} ${folders[targetKey].images.length} 张`;
+    showToast(`已上传 ${uploaded.length} 张照片到 ${folders[targetKey].title}，其他设备稍后刷新即可看到。`);
   } catch (error) {
     console.warn(error);
-    debugStatus.textContent = "涓婁紶澶辫触";
-    showToast(`涓婁紶澶辫触锛?{error.message || "璇锋鏌?GitHub 鎺堟潈鍜岀綉缁?}`);
+    debugStatus.textContent = "上传失败";
+    showToast(`上传失败：${error.message || "请检查 GitHub 授权和网络"}`);
   }
 }
 
 async function deleteCurrentPhoto() {
   if (galleryState !== "open") {
-    showToast("璇峰厛鎵撳紑鐩稿唽銆?);
+    showToast("请先打开相册。");
     return;
   }
 
   const images = getActiveImages();
   if (!images.length) {
-    showToast("褰撳墠鏂囦欢澶规病鏈夌収鐗囧彲鍒犻櫎銆?);
+    showToast("当前文件夹没有照片可删除。");
     return;
   }
 
   const folder = folders[activeFolderKey];
   const photoUrl = images[galleryIndex];
-  const ok = window.confirm(`纭畾鍒犻櫎 ${folder.title} 鏂囦欢澶归噷鐨勭 ${galleryIndex + 1} 寮犵収鐗囧悧锛焋);
+  const ok = window.confirm(`确定删除 ${folder.title} 文件夹里的第 ${galleryIndex + 1} 张照片吗？`);
   if (!ok) return;
 
   const token = await requireGithubToken();
   if (!token) return;
 
   try {
-    debugStatus.textContent = "鍒犻櫎澶勭悊涓?;
+    debugStatus.textContent = "删除处理中";
     const repoPath = toRepoPath(photoUrl);
     images.splice(galleryIndex, 1);
     galleryIndex = Math.min(galleryIndex, Math.max(0, images.length - 1));
@@ -1524,11 +1399,11 @@ async function deleteCurrentPhoto() {
     await saveFoldersEverywhere(`Update ${folder.title} album after delete`, token);
     renderFolderControls();
     updateGalleryPhoto();
-    debugStatus.textContent = `${folder.title} ${images.length} 寮燻;
-    showToast("宸插垹闄わ紝鍏朵粬璁惧绋嶅悗鍒锋柊鍗冲彲鍚屾銆?);
+    debugStatus.textContent = `${folder.title} ${images.length} 张`;
+    showToast("已删除，其他设备稍后刷新即可同步。");
   } catch (error) {
     console.warn(error);
-    showToast(`鍒犻櫎澶辫触锛?{error.message || "璇锋鏌?GitHub 鎺堟潈鍜岀綉缁?}`);
+    showToast(`删除失败：${error.message || "请检查 GitHub 授权和网络"}`);
     await loadRemoteFolders();
   }
 }
@@ -1546,7 +1421,7 @@ async function loadRemoteFolders() {
     if (!folders[activeFolderKey]) activeFolderKey = DEFAULT_FOLDER_KEY;
     renderFolderControls();
     if (galleryState === "open") updateGalleryPhoto();
-    debugStatus.textContent = "鐩稿唽宸插悓姝?;
+    debugStatus.textContent = "相册已同步";
   } catch (error) {
     console.warn(error);
   }
@@ -1604,7 +1479,7 @@ async function putGithubFile(path, contentBase64, message, token) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`GitHub 鍐欏叆澶辫触 ${response.status}: ${text.slice(0, 120)}`);
+    throw new Error(`GitHub 写入失败 ${response.status}: ${text.slice(0, 120)}`);
   }
   return response.json();
 }
@@ -1630,7 +1505,7 @@ async function deleteGithubFile(path, message, token) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`GitHub 鍒犻櫎澶辫触 ${response.status}: ${text.slice(0, 120)}`);
+    throw new Error(`GitHub 删除失败 ${response.status}: ${text.slice(0, 120)}`);
   }
   return response.json();
 }
@@ -1646,25 +1521,25 @@ async function getGithubFile(path, token) {
   if (response.status === 404) return null;
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`GitHub 璇诲彇澶辫触 ${response.status}: ${text.slice(0, 120)}`);
+    throw new Error(`GitHub 读取失败 ${response.status}: ${text.slice(0, 120)}`);
   }
   return response.json();
 }
 
 function configureGithubToken() {
   const current = localStorage.getItem(GITHUB_TOKEN_KEY) || "";
-  const token = window.prompt("璇疯緭鍏?GitHub fine-grained token锛堥渶瑕?Contents: Read and write锛?, current);
+  const token = window.prompt("请输入 GitHub fine-grained token（需要 Contents: Read and write）", current);
   if (token === null) return;
   const trimmed = token.trim();
   if (!trimmed) {
     localStorage.removeItem(GITHUB_TOKEN_KEY);
     authButton.classList.remove("active");
-    showToast("宸叉竻闄?GitHub 鎺堟潈銆?);
+    showToast("已清除 GitHub 授权。");
     return;
   }
   localStorage.setItem(GITHUB_TOKEN_KEY, trimmed);
   authButton.classList.add("active");
-  showToast("鎺堟潈宸蹭繚瀛樺埌鏈祻瑙堝櫒锛屽彲鐢ㄤ簬涓婁紶鍒?GitHub 浠撳簱銆?);
+  showToast("授权已保存到本浏览器，可用于上传到 GitHub 仓库。");
 }
 
 async function requireGithubToken() {
@@ -1673,7 +1548,7 @@ async function requireGithubToken() {
     configureGithubToken();
     token = localStorage.getItem(GITHUB_TOKEN_KEY) || "";
   }
-  if (!token) showToast("闇€瑕佸厛鐐瑰嚮鈥滄巿鏉冣€濆～鍐?GitHub Token锛屾墠鑳戒繚瀛樺埌澶氳澶囧彲瑙佺殑鐩稿唽銆?);
+  if (!token) showToast("需要先点击“授权”填写 GitHub Token，才能保存到多设备可见的相册。");
   return token;
 }
 
@@ -1816,7 +1691,7 @@ function renderFolderControls() {
 }
 
 async function createFolder() {
-  const raw = window.prompt("璇疯緭鍏ユ柊鏂囦欢澶瑰悕绉?, "");
+  const raw = window.prompt("请输入新文件夹名称", "");
   const title = raw?.trim();
   if (!title) return;
   const token = await requireGithubToken();
@@ -1824,7 +1699,7 @@ async function createFolder() {
 
   const key = makeFolderKey(title);
   if (folders[key]) {
-    showToast("杩欎釜鏂囦欢澶瑰凡缁忓瓨鍦ㄣ€?);
+    showToast("这个文件夹已经存在。");
     return;
   }
 
@@ -1838,11 +1713,11 @@ async function createFolder() {
     await saveFoldersEverywhere(`Create album folder ${title}`, token);
     renderFolderControls();
     openGallery(key);
-    showToast(`宸叉柊寤?${title} 鏂囦欢澶癸紝鍏朵粬璁惧绋嶅悗鍒锋柊鍗冲彲鐪嬪埌銆俙);
+    showToast(`已新建 ${title} 文件夹，其他设备稍后刷新即可看到。`);
   } catch (error) {
     delete folders[key];
     console.warn(error);
-    showToast(`鏂板缓澶辫触锛?{error.message || "璇锋鏌?GitHub 鎺堟潈鍜岀綉缁?}`);
+    showToast(`新建失败：${error.message || "请检查 GitHub 授权和网络"}`);
   }
 }
 
@@ -1858,9 +1733,9 @@ function makeFolderKey(title) {
 }
 
 function spreadLabel(value) {
-  if (value < 0.25) return "鏀剁缉";
-  if (value > 0.68) return "鎵╂暎";
-  return "鑱氬悎";
+  if (value < 0.25) return "收缩";
+  if (value > 0.68) return "扩散";
+  return "聚合";
 }
 
 function resize() {

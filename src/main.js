@@ -6,7 +6,7 @@ const ALBUM_STORAGE_KEY = "gestureParticleAlbumFolders";
 const GITHUB_TOKEN_KEY = "gestureParticleGithubToken";
 const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const STATUS_COLLAPSED_KEY = "gestureParticleStatusCollapsed";
-const CAMERA_PREVIEW_COLLAPSED_KEY = "gestureParticleCameraPreviewCollapsed";
+const CAMERA_PREVIEW_COLLAPSED_KEY = "gestureParticleCameraPanelCollapsed";
 const DEFAULT_FOLDER_KEY = "20260509";
 const CJ_FOLDER_KEY = "cj";
 const GITHUB_OWNER = "70-z";
@@ -247,20 +247,21 @@ function setStatusPanelCollapsed(collapsed) {
 }
 
 function initCameraPreviewPanel() {
-  const collapsed = localStorage.getItem(CAMERA_PREVIEW_COLLAPSED_KEY) === "true";
+  const collapsed = localStorage.getItem(CAMERA_PREVIEW_COLLAPSED_KEY) !== "false";
   setCameraPreviewCollapsed(collapsed);
   cameraPreviewToggle.addEventListener("click", () => {
-    setCameraPreviewCollapsed(!cameraPreview.classList.contains("collapsed"));
+    setCameraPreviewCollapsed(true);
   });
 }
 
 function setCameraPreviewCollapsed(collapsed) {
   cameraPreview.classList.toggle("collapsed", collapsed);
-  cameraPreviewToggle.textContent = collapsed ? "摄像头" : "收起";
+  cameraPreview.setAttribute("aria-hidden", String(collapsed));
+  cameraPreviewToggle.textContent = "收起";
   cameraPreviewToggle.setAttribute("aria-expanded", String(!collapsed));
-  cameraPreviewToggle.setAttribute("aria-label", collapsed ? "展开摄像头画面" : "收起摄像头画面");
+  cameraPreviewToggle.setAttribute("aria-label", "收起摄像头画面");
   cameraRetryButton.classList.toggle("active", !collapsed);
-  localStorage.setItem(CAMERA_PREVIEW_COLLAPSED_KEY, String(collapsed));
+  localStorage.setItem(CAMERA_PREVIEW_COLLAPSED_KEY, String(collapsed ? "true" : "false"));
 }
 
 function createHandsModel() {

@@ -4,25 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>青年才俊</title>
-    <link rel="stylesheet" href="./src/styles.css?v=27" />
+    <link rel="stylesheet" href="./src/styles.css?v=28" />
   </head>
   <body>
     <main id="app">
       <div id="cameraPreview" class="camera-preview">
-        <button
-          id="cameraPreviewToggle"
-          class="camera-preview-toggle"
-          type="button"
-          aria-controls="camera"
-          aria-expanded="true"
-          aria-label="收起摄像头画面"
-        >收起</button>
-        <button
-          id="cameraCheck"
-          class="camera-check"
-          type="button"
-          aria-label="检查摄像头连接"
-        >检查</button>
+        <div class="camera-preview-actions">
+          <button
+            id="cameraPreviewToggle"
+            class="camera-preview-toggle"
+            type="button"
+            aria-controls="camera"
+            aria-expanded="true"
+            aria-label="收起摄像头画面"
+          >收起</button>
+          <button
+            id="cameraCheck"
+            class="camera-check"
+            type="button"
+            aria-label="检查摄像头连接"
+          >检查</button>
+        </div>
         <video id="camera" playsinline muted></video>
       </div>
       <canvas id="scene"></canvas>
@@ -116,6 +118,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=33"></script>
+    <script type="module" src="./src/main.js?v=34"></script>
   </body>
 </html>

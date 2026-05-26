@@ -2,6 +2,8 @@ import * as THREE from "three";
 
 const PARTICLE_COUNT = 11200;
 const COUNTER_PARTICLES = 3400;
+const COLOR_UPDATE_STRIDE = 2;
+const HAND_FRAME_INTERVAL = 48;
 const ALBUM_STORAGE_KEY = "gestureParticleAlbumFolders";
 const GITHUB_TOKEN_KEY = "gestureParticleGithubToken";
 const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
@@ -139,6 +141,7 @@ let spreadSensitivity = loadStoredNumber(SPREAD_SENSITIVITY_KEY, 42);
 let rotationSensitivity = loadStoredNumber(ROTATION_SENSITIVITY_KEY, 86);
 let sensitivityMode = "rotation";
 let activeTheme = localStorage.getItem(THEME_COLOR_KEY) || "pink";
+const reusableParticleColor = new THREE.Color();
 
 for (let i = 0; i < PARTICLE_COUNT; i += 1) {
   const offset = i * 3;
@@ -198,6 +201,8 @@ let galleryPhotoToken = 0;
 let lastPhotoSwitchAt = 0;
 let lastGalleryToggleAt = 0;
 let activeFeature = null;
+let lastHandFrameAt = 0;
+let frameIndex = 0;
 
 setActiveShape("one");
 resize();
@@ -272,7 +277,7 @@ window.addEventListener("pointermove", (event) => {
   if (hasHands) return;
   if (activeFeature) return;
   targetSpread = Math.min(1, Math.max(0, event.clientX / window.innerWidth)) * getSpreadResponse();
-  motionStatus.textContent = spreadLabel(targetSpread);
+  setStatusText(motionStatus, spreadLabel(targetSpread));
 });
 
 animate();
@@ -284,15 +289,15 @@ initCameraPreviewPanel();
 
 async function setupHands({ force = false } = {}) {
   if (!window.Hands) {
-    cameraStatus.textContent = "组件未加载";
+    setStatusText(cameraStatus, "组件未加载");
     showToast("手势组件没有加载成功，请确认网络可访问 jsDelivr。");
     return;
   }
 
   try {
     if (force) stopActiveCamera();
-    cameraStatus.textContent = "请求授权";
-    debugStatus.textContent = "请求中";
+    setStatusText(cameraStatus, "请求授权");
+    setStatusText(debugStatus, "请求中");
 
     const stream = await openCameraStream();
     activeStream = stream;
@@ -302,16 +307,16 @@ async function setupHands({ force = false } = {}) {
     handsModel = handsModel ?? createHandsModel();
     handLoopRunning = true;
     pumpVideoToHands();
-    cameraStatus.textContent = "已开启";
+    setStatusText(cameraStatus, "已开启");
     const devices = await listCameraDevices();
     const trackLabel = stream.getVideoTracks()[0]?.label;
     const name = trackLabel || devices[0]?.label || "摄像头";
-    debugStatus.textContent = `设备 ${devices.length || 1}`;
+    setStatusText(debugStatus, `设备 ${devices.length || 1}`);
     showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 / 3 切文字；相册内请使用左右箭头切图。`);
   } catch (error) {
-    cameraStatus.textContent = readableCameraError(error).title;
-    gestureStatus.textContent = "手动演示";
-    debugStatus.textContent = error?.name || "未知错误";
+    setStatusText(cameraStatus, readableCameraError(error).title);
+    setStatusText(gestureStatus, "手动演示");
+    setStatusText(debugStatus, error?.name || "未知错误");
     showToast(readableCameraError(error).message);
     console.warn(error);
   }
@@ -357,9 +362,9 @@ function createHandsModel() {
   });
   hands.setOptions({
     maxNumHands: 2,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.72,
-    minTrackingConfidence: 0.68,
+    modelComplexity: 0,
+    minDetectionConfidence: 0.66,
+    minTrackingConfidence: 0.62,
     selfieMode: true,
   });
   hands.onResults(handleHandResults);
@@ -371,6 +376,13 @@ async function pumpVideoToHands() {
     if (handLoopRunning) requestAnimationFrame(pumpVideoToHands);
     return;
   }
+
+  const now = performance.now();
+  if (now - lastHandFrameAt < HAND_FRAME_INTERVAL) {
+    if (handLoopRunning) requestAnimationFrame(pumpVideoToHands);
+    return;
+  }
+  lastHandFrameAt = now;
 
   try {
     await handsModel.send({ image: video });
@@ -448,8 +460,8 @@ function handleHandResults(results) {
 
   if (!hands.length) {
     if (performance.now() - lastGestureAt > 800) {
-      gestureStatus.textContent = galleryState === "open" ? "相册模式" : "等待手势";
-      cameraStatus.textContent = "已开启";
+      setStatusText(gestureStatus, galleryState === "open" ? "相册模式" : "等待手势");
+      setStatusText(cameraStatus, "已开启");
     }
     targetHandRotationY *= 0.94;
     targetHandRotationX *= 0.94;
@@ -472,17 +484,17 @@ function handleHandResults(results) {
   }
 
   if (activeFeature) {
-    gestureStatus.textContent = `功能 ${FEATURE_LABELS[activeFeature]}`;
+    setStatusText(gestureStatus, `功能 ${FEATURE_LABELS[activeFeature]}`);
     targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
     targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
-    motionStatus.textContent = spreadLabel(targetSpread);
+    setStatusText(motionStatus, spreadLabel(targetSpread));
     return;
   }
 
   if (primaryCount >= 1 && primaryCount <= 3) {
     setActiveShape(shapeKeyFromNumber(primaryCount));
   } else {
-    gestureStatus.textContent = `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`;
+    setStatusText(gestureStatus, `${Math.min(2, hands.length)} 手 / ${primaryCount} 指`);
   }
 
   const textGestureActive = primaryCount >= 1 && primaryCount <= 3;
@@ -491,7 +503,7 @@ function handleHandResults(results) {
     targetSpread = handSpread > 0.34 ? THREE.MathUtils.smoothstep(handSpread, 0.34, 0.92) * getSpreadResponse() : 0;
   }
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
-  motionStatus.textContent = spreadLabel(targetSpread);
+  setStatusText(motionStatus, spreadLabel(targetSpread));
 }
 
 function countExtendedFingers(landmarks) {
@@ -619,6 +631,7 @@ function updateHandRotation(hands) {
 
 function animate() {
   requestAnimationFrame(animate);
+  frameIndex += 1;
 
   const elapsed = (performance.now() - clockStart) / 1000;
   const gestureRecentlySeen = performance.now() - lastGestureAt < 1200;
@@ -637,6 +650,10 @@ function animate() {
   const burst = THREE.MathUtils.smoothstep(visualSpread, 0.04, 0.9);
   const twist = visualSpread * THREE.MathUtils.lerp(0.45, 1.15, burst) * (1 - stillness);
   const targetScale = 1 + visualSpread * THREE.MathUtils.lerp(1.15, 2.8, burst);
+  const pull = THREE.MathUtils.lerp(0.022, 0.105, stillness);
+  const damping = THREE.MathUtils.lerp(0.74, 0.36, stillness);
+  const updateColors = frameIndex % COLOR_UPDATE_STRIDE === 0;
+  const colorMix = updateColors ? 0.12 : 0;
 
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
     const offset = i * 3;
@@ -655,8 +672,6 @@ function animate() {
     const ty = sy * targetScale + ry;
     const tz = (sx * targetScale + rx) * sin + (sz + rz) * cos;
 
-    const pull = THREE.MathUtils.lerp(0.018, 0.09, stillness);
-    const damping = THREE.MathUtils.lerp(0.78, 0.38, stillness);
     velocity[offset] = (velocity[offset] + (tx - current[offset]) * pull) * damping;
     velocity[offset + 1] = (velocity[offset + 1] + (ty - current[offset + 1]) * pull) * damping;
     velocity[offset + 2] = (velocity[offset + 2] + (tz - current[offset + 2]) * pull) * damping;
@@ -668,14 +683,16 @@ function animate() {
     positionArray[offset + 1] = current[offset + 1];
     positionArray[offset + 2] = current[offset + 2];
 
-    const color = getDefaultParticleColor(i, elapsed);
-    colorArray[offset] += (color.r - colorArray[offset]) * 0.08;
-    colorArray[offset + 1] += (color.g - colorArray[offset + 1]) * 0.08;
-    colorArray[offset + 2] += (color.b - colorArray[offset + 2]) * 0.08;
+    if (updateColors) {
+      getDefaultParticleColor(i, elapsed, reusableParticleColor);
+      colorArray[offset] += (reusableParticleColor.r - colorArray[offset]) * colorMix;
+      colorArray[offset + 1] += (reusableParticleColor.g - colorArray[offset + 1]) * colorMix;
+      colorArray[offset + 2] += (reusableParticleColor.b - colorArray[offset + 2]) * colorMix;
+    }
   }
 
   geometry.attributes.position.needsUpdate = true;
-  geometry.attributes.color.needsUpdate = true;
+  if (updateColors) geometry.attributes.color.needsUpdate = true;
   group.rotation.y = Math.sin(elapsed * 0.32) * 0.12 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationY;
   group.rotation.x = Math.sin(elapsed * 0.23) * 0.045 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationX;
   renderer.render(scene, camera);
@@ -1124,21 +1141,21 @@ function capsuleDistance(px, py, ax, ay, bx, by) {
   return Math.hypot(px - x, py - y);
 }
 
-function getDefaultParticleColor(i, elapsed = 0) {
+function getDefaultParticleColor(i, elapsed = 0, target = reusableParticleColor) {
   const tone = i / PARTICLE_COUNT;
   const shimmer = (Math.sin(elapsed * 1.8 + i * 0.017) + 1) * 0.5;
   const baseHue = THEME_PRESETS[activeTheme]?.[5] ?? THEME_PRESETS.pink[5];
   const hue = (baseHue + THREE.MathUtils.lerp(-0.04, 0.04, (tone * 1.7 + shimmer * 0.24) % 1) + 1) % 1;
   const saturation = THREE.MathUtils.lerp(0.74, 0.98, shimmer);
   const lightness = THREE.MathUtils.lerp(0.58, 0.76, Math.sin(tone * Math.PI * 6) * 0.5 + 0.5);
-  return new THREE.Color().setHSL(hue, saturation, lightness);
+  return target.setHSL(hue, saturation, lightness);
 }
 
 function setDefaultParticleColor(i, offset) {
-  const color = getDefaultParticleColor(i);
-  colorArray[offset] = color.r;
-  colorArray[offset + 1] = color.g;
-  colorArray[offset + 2] = color.b;
+  getDefaultParticleColor(i, 0, reusableParticleColor);
+  colorArray[offset] = reusableParticleColor.r;
+  colorArray[offset + 1] = reusableParticleColor.g;
+  colorArray[offset + 2] = reusableParticleColor.b;
 }
 
 function setSensitivityPanelOpen(open) {
@@ -1257,7 +1274,7 @@ function setActiveShape(shape, message) {
   newFolderButton.classList.remove("active");
   authButton.classList.toggle("active", hasGithubToken());
   deletePhotoButton.classList.remove("active");
-  gestureStatus.textContent = `手势 ${numberFromShapeKey(shape)}`;
+  setStatusText(gestureStatus, `手势 ${numberFromShapeKey(shape)}`);
   if (message) showToast(message);
 }
 
@@ -1287,8 +1304,8 @@ function setFeatureShape(shape) {
   exitGalleryButton.classList.remove("active");
   setFeaturePanelOpen(true);
   updateFeatureButtonState();
-  gestureStatus.textContent = `功能 ${FEATURE_LABELS[shape]}`;
-  motionStatus.textContent = "聚合";
+  setStatusText(gestureStatus, `功能 ${FEATURE_LABELS[shape]}`);
+  setStatusText(motionStatus, "聚合");
   showToast(`已切换到${FEATURE_LABELS[shape]}。`);
 }
 
@@ -1330,8 +1347,8 @@ function openGallery(folderKey = activeFolderKey) {
   featureButton.classList.remove("active");
   exitGalleryButton.classList.add("active");
   defaultGalleryButton.classList.add("active");
-  motionStatus.textContent = "相册";
-  gestureStatus.textContent = "相册模式";
+  setStatusText(motionStatus, "相册");
+  setStatusText(gestureStatus, "相册模式");
   renderFolderControls();
   updateGalleryPhoto();
   showToast(`已打开 ${folders[activeFolderKey].title} 文件夹，可选择文件夹上传照片。`);
@@ -1346,15 +1363,15 @@ function closeGallery(message = "已退出相册。") {
   setActiveShape(activeShape || "one");
   targetSpread = 0;
   lastTextGestureAt = performance.now();
-  motionStatus.textContent = "收缩";
+  setStatusText(motionStatus, "收缩");
   showToast(message);
 }
 
 function updateGalleryMotion(handSpread, openness) {
-  gestureStatus.textContent = "相册模式";
+  setStatusText(gestureStatus, "相册模式");
   targetSpread = Math.max(0.18, softenSpread(Math.max(handSpread, openness * 0.62)));
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
-  motionStatus.textContent = "相册";
+  setStatusText(motionStatus, "相册");
 }
 
 function switchGalleryPhoto(direction) {
@@ -1467,7 +1484,7 @@ async function handleCjUpload() {
   if (!token) return;
 
   try {
-    debugStatus.textContent = "上传处理中";
+    setStatusText(debugStatus, "上传处理中");
     const uploaded = [];
     for (const file of files) {
       const compressed = await compressImageFile(file);
@@ -1481,11 +1498,11 @@ async function handleCjUpload() {
     galleryIndex = Math.max(0, folders[targetKey].images.length - uploaded.length);
     openGallery(targetKey);
     updateGalleryPhoto();
-    debugStatus.textContent = `${folders[targetKey].title} ${folders[targetKey].images.length} 张`;
+    setStatusText(debugStatus, `${folders[targetKey].title} ${folders[targetKey].images.length} 张`);
     showToast(`已上传 ${uploaded.length} 张照片到 ${folders[targetKey].title}，其他设备稍后刷新即可看到。`);
   } catch (error) {
     console.warn(error);
-    debugStatus.textContent = "上传失败";
+    setStatusText(debugStatus, "上传失败");
     showToast(`上传失败：${error.message || "请检查 GitHub 授权和网络"}`);
   }
 }
@@ -1511,7 +1528,7 @@ async function deleteCurrentPhoto() {
   if (!token) return;
 
   try {
-    debugStatus.textContent = "删除处理中";
+    setStatusText(debugStatus, "删除处理中");
     const repoPath = toRepoPath(photoUrl);
     images.splice(galleryIndex, 1);
     galleryIndex = Math.min(galleryIndex, Math.max(0, images.length - 1));
@@ -1522,7 +1539,7 @@ async function deleteCurrentPhoto() {
     await saveFoldersEverywhere(`Update ${folder.title} album after delete`, token);
     renderFolderControls();
     updateGalleryPhoto();
-    debugStatus.textContent = `${folder.title} ${images.length} 张`;
+    setStatusText(debugStatus, `${folder.title} ${images.length} 张`);
     showToast("已删除，其他设备稍后刷新即可同步。");
   } catch (error) {
     console.warn(error);
@@ -1544,7 +1561,7 @@ async function loadRemoteFolders() {
     if (!folders[activeFolderKey]) activeFolderKey = DEFAULT_FOLDER_KEY;
     renderFolderControls();
     if (galleryState === "open") updateGalleryPhoto();
-    debugStatus.textContent = "相册已同步";
+    setStatusText(debugStatus, "相册已同步");
   } catch (error) {
     console.warn(error);
   }
@@ -1895,6 +1912,11 @@ function jointCosine(a, b, c) {
 
 function rand(min, max) {
   return min + Math.random() * (max - min);
+}
+
+function setStatusText(element, value) {
+  const text = String(value ?? "");
+  if (element.textContent !== text) element.textContent = text;
 }
 
 let toastTimer = 0;

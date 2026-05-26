@@ -2,6 +2,8 @@ import * as THREE from "three";
 
 const PARTICLE_COUNT = 11200;
 const COUNTER_PARTICLES = 3400;
+const TEXT_FLOAT_RATIO = 0.26;
+const TEXT_CORE_PARTICLES = Math.floor(PARTICLE_COUNT * (1 - TEXT_FLOAT_RATIO));
 const COLOR_UPDATE_STRIDE = 2;
 const HAND_FRAME_INTERVAL = 48;
 const ALBUM_STORAGE_KEY = "gestureParticleAlbumFolders";
@@ -121,9 +123,9 @@ const colorArray = new Float32Array(PARTICLE_COUNT * 3);
 const current = new Float32Array(PARTICLE_COUNT * 3);
 const velocity = new Float32Array(PARTICLE_COUNT * 3);
 const shapeTargets = {
-  one: makeTextTargets(TEXTS.one),
-  two: makeTextTargets(TEXTS.two),
-  three: makeTextTargets(TEXTS.three),
+  one: makeTextTargets(TEXTS.one, { floatRatio: TEXT_FLOAT_RATIO }),
+  two: makeTextTargets(TEXTS.two, { floatRatio: TEXT_FLOAT_RATIO }),
+  three: makeTextTargets(TEXTS.three, { floatRatio: TEXT_FLOAT_RATIO }),
 };
 const featureTargets = {
   heart: makeFilledHeartTargets(),
@@ -503,8 +505,12 @@ function handleHandResults(results) {
   }
 
   const textGestureActive = primaryCount >= 1 && primaryCount <= 3;
-  targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
-  if (textGestureActive) {
+  if (textGestureActive && isTextViewLocked()) {
+    targetSpread = 0;
+  } else {
+    targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
+  }
+  if (textGestureActive && !isTextViewLocked()) {
     targetSpread = handSpread > 0.34 ? THREE.MathUtils.smoothstep(handSpread, 0.34, 0.92) * getSpreadResponse() : 0;
   }
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
@@ -669,27 +675,34 @@ function animate() {
   const damping = THREE.MathUtils.lerp(0.74, 0.36, stillness);
   const updateColors = frameIndex % COLOR_UPDATE_STRIDE === 0;
   const colorMix = updateColors ? 0.12 : 0;
+  const lockedText = isTextViewLocked();
 
   for (let i = 0; i < PARTICLE_COUNT; i += 1) {
     const offset = i * 3;
     const sx = activeTargets[offset];
     const sy = activeTargets[offset + 1];
     const sz = activeTargets[offset + 2];
-    const wave = Math.sin(elapsed * 2.2 + i * 0.013) * 0.22 * burst;
-    const rx = scatterTargets[offset] * visualSpread * 2.75 + wave;
-    const ry = scatterTargets[offset + 1] * visualSpread * 2.05 + Math.cos(elapsed * 1.7 + i * 0.01) * 0.16 * burst;
-    const rz = scatterTargets[offset + 2] * visualSpread * 3.35;
+    const isTextFloat = lockedText && i >= TEXT_CORE_PARTICLES;
+    const floatMotion = isTextFloat ? 1 : 0;
+    const wave = Math.sin(elapsed * 1.9 + i * 0.019) * (isTextFloat ? 0.26 : 0.22 * burst);
+    const drift = isTextFloat ? 0.42 : visualSpread;
+    const rx = scatterTargets[offset] * drift * (isTextFloat ? 0.2 : 2.75) + wave;
+    const ry = scatterTargets[offset + 1] * drift * (isTextFloat ? 0.16 : 2.05) + Math.cos(elapsed * 1.43 + i * 0.013) * (isTextFloat ? 0.22 : 0.16 * burst);
+    const rz = scatterTargets[offset + 2] * drift * (isTextFloat ? 0.28 : 3.35);
 
-    const angle = twist * sy + elapsed * 0.05 * (1 - stillness);
+    const angle = lockedText ? 0 : twist * sy + elapsed * 0.05 * (1 - stillness);
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const tx = (sx * targetScale + rx) * cos - (sz + rz) * sin;
-    const ty = sy * targetScale + ry;
-    const tz = (sx * targetScale + rx) * sin + (sz + rz) * cos;
+    const scale = lockedText ? 1 : targetScale;
+    const tx = (sx * scale + rx * (lockedText ? floatMotion : 1)) * cos - (sz + rz * (lockedText ? floatMotion : 1)) * sin;
+    const ty = sy * scale + ry * (lockedText ? floatMotion : 1);
+    const tz = (sx * scale + rx * (lockedText ? floatMotion : 1)) * sin + (sz + rz * (lockedText ? floatMotion : 1)) * cos;
+    const localPull = lockedText && !isTextFloat ? 0.14 : pull;
+    const localDamping = lockedText && !isTextFloat ? 0.28 : damping;
 
-    velocity[offset] = (velocity[offset] + (tx - current[offset]) * pull) * damping;
-    velocity[offset + 1] = (velocity[offset + 1] + (ty - current[offset + 1]) * pull) * damping;
-    velocity[offset + 2] = (velocity[offset + 2] + (tz - current[offset + 2]) * pull) * damping;
+    velocity[offset] = (velocity[offset] + (tx - current[offset]) * localPull) * localDamping;
+    velocity[offset + 1] = (velocity[offset + 1] + (ty - current[offset + 1]) * localPull) * localDamping;
+    velocity[offset + 2] = (velocity[offset + 2] + (tz - current[offset + 2]) * localPull) * localDamping;
     current[offset] += velocity[offset];
     current[offset + 1] += velocity[offset + 1];
     current[offset + 2] += velocity[offset + 2];

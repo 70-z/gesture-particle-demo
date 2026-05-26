@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>青年才俊</title>
-    <link rel="stylesheet" href="./src/styles.css?v=26" />
+    <link rel="stylesheet" href="./src/styles.css?v=27" />
   </head>
   <body>
     <main id="app">
@@ -17,6 +17,12 @@
           aria-expanded="true"
           aria-label="收起摄像头画面"
         >收起</button>
+        <button
+          id="cameraCheck"
+          class="camera-check"
+          type="button"
+          aria-label="检查摄像头连接"
+        >检查</button>
         <video id="camera" playsinline muted></video>
       </div>
       <canvas id="scene"></canvas>
@@ -65,7 +71,7 @@
         <button id="textTwo" type="button" aria-label="切换到苏音唯美，爱泷不悔">2</button>
         <button id="numberThree" type="button" aria-label="切换到 Silence牛逼克拉斯">3</button>
         <button id="defaultGalleryButton" type="button" aria-label="打开相册">相册</button>
-        <button id="cameraRetry" type="button" aria-label="重新连接摄像头">摄像头</button>
+        <button id="cameraRetry" type="button" aria-label="打开摄像头画面">摄像头</button>
         <label>
           <span>扩散</span>
           <input id="spreadControl" type="range" min="0" max="100" value="36" />
@@ -110,6 +116,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=32"></script>
+    <script type="module" src="./src/main.js?v=33"></script>
   </body>
 </html>

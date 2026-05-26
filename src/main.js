@@ -30,6 +30,7 @@ const folders = loadStoredFolders();
 const canvas = document.querySelector("#scene");
 const cameraPreview = document.querySelector("#cameraPreview");
 const cameraPreviewToggle = document.querySelector("#cameraPreviewToggle");
+const cameraCheckButton = document.querySelector("#cameraCheck");
 const video = document.querySelector("#camera");
 const cameraStatus = document.querySelector("#cameraStatus");
 const gestureStatus = document.querySelector("#gestureStatus");
@@ -157,7 +158,8 @@ newFolderButton.addEventListener("click", createFolder);
 authButton.addEventListener("click", configureGithubToken);
 cjUploadButton.addEventListener("click", () => cjUpload.click());
 deletePhotoButton.addEventListener("click", deleteCurrentPhoto);
-cameraRetryButton.addEventListener("click", () => setupHands({ force: true }));
+cameraRetryButton.addEventListener("click", () => setCameraPreviewCollapsed(false));
+cameraCheckButton.addEventListener("click", () => setupHands({ force: true }));
 galleryPrev.addEventListener("click", () => switchGalleryPhoto(-1));
 galleryNext.addEventListener("click", () => switchGalleryPhoto(1));
 cjUpload.addEventListener("change", handleCjUpload);
@@ -257,6 +259,7 @@ function setCameraPreviewCollapsed(collapsed) {
   cameraPreviewToggle.textContent = collapsed ? "摄像头" : "收起";
   cameraPreviewToggle.setAttribute("aria-expanded", String(!collapsed));
   cameraPreviewToggle.setAttribute("aria-label", collapsed ? "展开摄像头画面" : "收起摄像头画面");
+  cameraRetryButton.classList.toggle("active", !collapsed);
   localStorage.setItem(CAMERA_PREVIEW_COLLAPSED_KEY, String(collapsed));
 }
 
@@ -330,7 +333,7 @@ function readableCameraError(error) {
   if (name === "NotAllowedError" || name === "SecurityError") {
     return {
       title: "权限被拒绝",
-      message: "Edge 没有获得摄像头权限。请点地址栏左侧的权限图标，允许摄像头后再点“摄像头”重试。",
+      message: "Edge 没有获得摄像头权限。请点地址栏左侧的权限图标，允许摄像头后打开摄像头面板点“检查”重试。",
     };
   }
   if (name === "NotFoundError" || message.includes("没有检测到")) {
@@ -342,7 +345,7 @@ function readableCameraError(error) {
   if (name === "NotReadableError" || name === "AbortError") {
     return {
       title: "设备被占用",
-      message: "摄像头可能正被微信、会议软件或另一个浏览器标签占用。关闭占用后点“摄像头”重试。",
+      message: "摄像头可能正被微信、会议软件或另一个浏览器标签占用。关闭占用后打开摄像头面板点“检查”重试。",
     };
   }
   return {

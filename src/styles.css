@@ -74,7 +74,7 @@ body {
 
 .camera-preview-toggle {
   position: absolute;
-  right: 8px;
+  right: 62px;
   top: 8px;
   z-index: 1;
   min-width: 44px;
@@ -90,8 +90,28 @@ body {
   box-shadow: 0 0 22px rgba(255, 93, 168, 0.18);
 }
 
+.camera-check {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+  min-width: 44px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 174, 216, 0.42);
+  border-radius: 8px;
+  color: var(--paper);
+  background: rgba(255, 93, 168, 0.2);
+  font: 800 12px / 1 "Microsoft YaHei UI", system-ui, sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 0 22px rgba(255, 93, 168, 0.18);
+}
+
 .camera-preview-toggle:hover,
-.camera-preview-toggle:focus {
+.camera-preview-toggle:focus,
+.camera-check:hover,
+.camera-check:focus {
   border-color: rgba(255, 138, 198, 0.82);
   background: rgba(255, 93, 168, 0.3);
   outline: none;
@@ -115,6 +135,10 @@ body {
   min-width: 72px;
   height: 38px;
   background: rgba(255, 93, 168, 0.2);
+}
+
+.camera-preview.collapsed .camera-check {
+  display: none;
 }
 
 .hud {

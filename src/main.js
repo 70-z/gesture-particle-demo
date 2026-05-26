@@ -203,6 +203,8 @@ let lastGalleryToggleAt = 0;
 let activeFeature = null;
 let lastHandFrameAt = 0;
 let frameIndex = 0;
+let lockedTextShape = null;
+let textViewLockBlend = 0;
 
 setActiveShape("one");
 resize();
@@ -463,8 +465,10 @@ function handleHandResults(results) {
       setStatusText(gestureStatus, galleryState === "open" ? "相册模式" : "等待手势");
       setStatusText(cameraStatus, "已开启");
     }
-    targetHandRotationY *= 0.94;
-    targetHandRotationX *= 0.94;
+    if (!isTextViewLocked()) {
+      targetHandRotationY *= 0.94;
+      targetHandRotationX *= 0.94;
+    }
     return;
   }
 
@@ -472,7 +476,8 @@ function handleHandResults(results) {
   const fingerCounts = hands.map(countExtendedFingers);
   const rawHandSpread = computeTwoHandSpread(hands);
   const rawOpenness = hands.reduce((sum, hand) => sum + computeHandOpenness(hand), 0) / hands.length;
-  updateHandRotation(hands);
+  if (isTextViewLocked()) resetViewRotation();
+  else updateHandRotation(hands);
   const handSpread = dampGestureValue(rawHandSpread, "spread", 0.04);
   const openness = dampGestureValue(rawOpenness, "openness", 0.035);
   const rawPrimaryCount = [5, 4, 3, 2, 1].find((count) => fingerCounts.includes(count)) ?? fingerCounts[0];
@@ -629,6 +634,15 @@ function updateHandRotation(hands) {
   targetHandRotationX = -deadY * getRotationLimit() * 0.42;
 }
 
+function resetViewRotation() {
+  targetHandRotationY = 0;
+  targetHandRotationX = 0;
+}
+
+function isTextViewLocked() {
+  return galleryState !== "open" && !activeFeature && !!lockedTextShape;
+}
+
 function animate() {
   requestAnimationFrame(animate);
   frameIndex += 1;
@@ -637,12 +651,13 @@ function animate() {
   const gestureRecentlySeen = performance.now() - lastGestureAt < 1200;
   const textGestureRecentlySeen = performance.now() - lastTextGestureAt < 1600;
   rotationBlend += ((gestureRecentlySeen || galleryState === "open" ? 0 : 1) - rotationBlend) * 0.075;
+  textViewLockBlend += ((isTextViewLocked() ? 1 : 0) - textViewLockBlend) * 0.16;
   const expanding = targetSpread > 0.18;
   const stableTarget = galleryState === "open" ? 0.58 : activeFeature && !expanding ? 0.92 : textGestureRecentlySeen && !expanding ? 1 : 0;
   stableTextBlend += (stableTarget - stableTextBlend) * 0.14;
   smoothedSpread += (targetSpread - smoothedSpread) * (expanding ? 0.105 : 0.07);
-  smoothedHandRotationY += (targetHandRotationY - smoothedHandRotationY) * 0.08;
-  smoothedHandRotationX += (targetHandRotationX - smoothedHandRotationX) * 0.08;
+  smoothedHandRotationY += (targetHandRotationY - smoothedHandRotationY) * (isTextViewLocked() ? 0.16 : 0.08);
+  smoothedHandRotationX += (targetHandRotationX - smoothedHandRotationX) * (isTextViewLocked() ? 0.16 : 0.08);
   const stillness = stableTextBlend;
   const breath = Math.sin(elapsed * 1.4) * 0.05 * (1 - stillness);
   const rawSpread = smoothedSpread + breath;
@@ -693,8 +708,9 @@ function animate() {
 
   geometry.attributes.position.needsUpdate = true;
   if (updateColors) geometry.attributes.color.needsUpdate = true;
-  group.rotation.y = Math.sin(elapsed * 0.32) * 0.12 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationY;
-  group.rotation.x = Math.sin(elapsed * 0.23) * 0.045 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationX;
+  const unlockedView = 1 - textViewLockBlend;
+  group.rotation.y = (Math.sin(elapsed * 0.32) * 0.12 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationY) * unlockedView;
+  group.rotation.x = (Math.sin(elapsed * 0.23) * 0.045 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationX) * unlockedView;
   renderer.render(scene, camera);
 }
 
@@ -1258,12 +1274,15 @@ function shapeKeyFromNumber(number) {
 
 function setActiveShape(shape, message) {
   if (galleryState === "open") return;
+  const shapeChanged = activeShape !== shape || activeFeature;
   activeFeature = null;
   setFeaturePanelOpen(false);
   galleryState = "closed";
   activeShape = shape;
+  lockedTextShape = shape;
+  if (shapeChanged) resetViewRotation();
   activeTargets = shapeTargets[shape];
-  lastTextGestureAt = performance.now();
+  if (shapeChanged) lastTextGestureAt = performance.now();
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
   numberThreeButton.classList.toggle("active", shape === "three");
@@ -1293,6 +1312,7 @@ function setFeatureShape(shape) {
   if (!featureTargets[shape]) return;
   if (galleryState === "open") closeGallery();
   activeFeature = shape;
+  lockedTextShape = null;
   activeTargets = featureTargets[shape];
   targetSpread = 0;
   smoothedSpread = Math.min(smoothedSpread, 0.18);
@@ -1331,6 +1351,7 @@ function numberFromShapeKey(shape) {
 
 function openGallery(folderKey = activeFolderKey) {
   activeFeature = null;
+  lockedTextShape = null;
   setFeaturePanelOpen(false);
   updateFeatureButtonState();
   activeFolderKey = folders[folderKey] ? folderKey : DEFAULT_FOLDER_KEY;

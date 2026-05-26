@@ -146,10 +146,18 @@ const material = new THREE.PointsMaterial({
 const points = new THREE.Points(geometry, material);
 group.add(points);
 
+const SPREAD_RESPONSE = 0.62;
+const HAND_ROTATION_LIMIT = 0.42;
 let activeShape = "one";
 let activeFolderKey = DEFAULT_FOLDER_KEY;
 let targetSpread = 0.36;
 let smoothedSpread = targetSpread;
+let smoothedHandSpread = targetSpread;
+let smoothedHandOpenness = targetSpread;
+let targetHandRotationY = 0;
+let targetHandRotationX = 0;
+let smoothedHandRotationY = 0;
+let smoothedHandRotationX = 0;
 let hasHands = false;
 let lastGestureAt = 0;
 let clockStart = performance.now();
@@ -401,13 +409,18 @@ function handleHandResults(results) {
       gestureStatus.textContent = galleryState === "open" ? "相册模式" : "等待手势";
       cameraStatus.textContent = "已开启";
     }
+    targetHandRotationY *= 0.94;
+    targetHandRotationX *= 0.94;
     return;
   }
 
   lastGestureAt = performance.now();
   const fingerCounts = hands.map(countExtendedFingers);
-  const handSpread = computeTwoHandSpread(hands);
-  const openness = hands.reduce((sum, hand) => sum + computeHandOpenness(hand), 0) / hands.length;
+  const rawHandSpread = computeTwoHandSpread(hands);
+  const rawOpenness = hands.reduce((sum, hand) => sum + computeHandOpenness(hand), 0) / hands.length;
+  updateHandRotation(hands);
+  const handSpread = dampGestureValue(rawHandSpread, "spread", 0.04);
+  const openness = dampGestureValue(rawOpenness, "openness", 0.035);
   const rawPrimaryCount = [5, 4, 3, 2, 1].find((count) => fingerCounts.includes(count)) ?? fingerCounts[0];
   const primaryCount = smoothFingerCount(rawPrimaryCount);
 
@@ -418,7 +431,7 @@ function handleHandResults(results) {
 
   if (activeFeature) {
     gestureStatus.textContent = `功能 ${FEATURE_LABELS[activeFeature]}`;
-    targetSpread = Math.max(handSpread, openness * 0.72);
+    targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
     targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
     spreadControl.value = String(Math.round(targetSpread * 100));
     motionStatus.textContent = spreadLabel(targetSpread);
@@ -432,9 +445,9 @@ function handleHandResults(results) {
   }
 
   const textGestureActive = primaryCount >= 1 && primaryCount <= 3;
-  targetSpread = Math.max(handSpread, openness * 0.72);
+  targetSpread = softenSpread(Math.max(handSpread, openness * 0.72));
   if (textGestureActive) {
-    targetSpread = handSpread > 0.22 ? THREE.MathUtils.smoothstep(handSpread, 0.22, 0.82) : 0;
+    targetSpread = handSpread > 0.34 ? THREE.MathUtils.smoothstep(handSpread, 0.34, 0.92) * SPREAD_RESPONSE : 0;
   }
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
@@ -524,6 +537,33 @@ function computeHandOpenness(hand) {
   return THREE.MathUtils.clamp((thumbIndex * 0.42 + indexPinky * 0.58 - 0.74) / 1.12, 0, 1);
 }
 
+function dampGestureValue(value, channel, deadZone = 0.035) {
+  const currentValue = channel === "openness" ? smoothedHandOpenness : smoothedHandSpread;
+  const next = Math.abs(value - currentValue) < deadZone
+    ? currentValue
+    : currentValue + (value - currentValue) * 0.18;
+  const clamped = THREE.MathUtils.clamp(next, 0, 1);
+  if (channel === "openness") smoothedHandOpenness = clamped;
+  else smoothedHandSpread = clamped;
+  return clamped;
+}
+
+function softenSpread(value) {
+  return THREE.MathUtils.smoothstep(value, 0.12, 0.96) * SPREAD_RESPONSE;
+}
+
+function updateHandRotation(hands) {
+  const points = hands.flat();
+  if (!points.length) return;
+  const center = averagePoint(points);
+  const rawX = THREE.MathUtils.clamp((center.x - 0.5) / 0.42, -1, 1);
+  const rawY = THREE.MathUtils.clamp((center.y - 0.52) / 0.38, -1, 1);
+  const deadX = Math.abs(rawX) < 0.11 ? 0 : rawX;
+  const deadY = Math.abs(rawY) < 0.13 ? 0 : rawY;
+  targetHandRotationY = -deadX * HAND_ROTATION_LIMIT;
+  targetHandRotationX = -deadY * HAND_ROTATION_LIMIT * 0.42;
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -534,7 +574,9 @@ function animate() {
   const expanding = targetSpread > 0.18;
   const stableTarget = galleryState === "open" ? 0.58 : activeFeature && !expanding ? 0.92 : textGestureRecentlySeen && !expanding ? 1 : 0;
   stableTextBlend += (stableTarget - stableTextBlend) * 0.14;
-  smoothedSpread += (targetSpread - smoothedSpread) * (expanding ? 0.18 : 0.1);
+  smoothedSpread += (targetSpread - smoothedSpread) * (expanding ? 0.105 : 0.07);
+  smoothedHandRotationY += (targetHandRotationY - smoothedHandRotationY) * 0.08;
+  smoothedHandRotationX += (targetHandRotationX - smoothedHandRotationX) * 0.08;
   const stillness = stableTextBlend;
   const breath = Math.sin(elapsed * 1.4) * 0.05 * (1 - stillness);
   const rawSpread = smoothedSpread + breath;
@@ -581,8 +623,8 @@ function animate() {
 
   geometry.attributes.position.needsUpdate = true;
   geometry.attributes.color.needsUpdate = true;
-  group.rotation.y = Math.sin(elapsed * 0.32) * 0.12 * rotationBlend * (1 - stableTextBlend);
-  group.rotation.x = Math.sin(elapsed * 0.23) * 0.045 * rotationBlend * (1 - stableTextBlend);
+  group.rotation.y = Math.sin(elapsed * 0.32) * 0.12 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationY;
+  group.rotation.x = Math.sin(elapsed * 0.23) * 0.045 * rotationBlend * (1 - stableTextBlend) + smoothedHandRotationX;
   renderer.render(scene, camera);
 }
 
@@ -1186,7 +1228,7 @@ function closeGallery(message = "已退出相册。") {
 
 function updateGalleryMotion(handSpread, openness) {
   gestureStatus.textContent = "相册模式";
-  targetSpread = Math.max(0.24, handSpread, openness * 0.62);
+  targetSpread = Math.max(0.18, softenSpread(Math.max(handSpread, openness * 0.62)));
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = "相册";

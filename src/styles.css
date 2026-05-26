@@ -44,13 +44,19 @@ body {
   display: block;
 }
 
-#camera {
+.camera-preview {
   position: fixed;
   right: 18px;
   bottom: 18px;
   z-index: 3;
   width: min(22vw, 260px);
   min-width: 142px;
+  pointer-events: auto;
+}
+
+#camera {
+  display: block;
+  width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
   border: 1px solid var(--line);
@@ -61,6 +67,54 @@ body {
   box-shadow:
     0 16px 50px rgba(0, 0, 0, 0.42),
     0 0 36px rgba(255, 93, 168, 0.12);
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease;
+}
+
+.camera-preview-toggle {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+  min-width: 44px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 174, 216, 0.42);
+  border-radius: 8px;
+  color: var(--paper);
+  background: rgba(29, 7, 22, 0.72);
+  font: 800 12px / 1 "Microsoft YaHei UI", system-ui, sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 0 22px rgba(255, 93, 168, 0.18);
+}
+
+.camera-preview-toggle:hover,
+.camera-preview-toggle:focus {
+  border-color: rgba(255, 138, 198, 0.82);
+  background: rgba(255, 93, 168, 0.3);
+  outline: none;
+}
+
+.camera-preview.collapsed {
+  width: auto;
+  min-width: 0;
+}
+
+.camera-preview.collapsed #camera {
+  display: none;
+  width: 0;
+  opacity: 0;
+  transform: translateY(8px) scale(0.92);
+  pointer-events: none;
+}
+
+.camera-preview.collapsed .camera-preview-toggle {
+  position: static;
+  min-width: 72px;
+  height: 38px;
+  background: rgba(255, 93, 168, 0.2);
 }
 
 .hud {
@@ -522,7 +576,7 @@ body {
     flex: 1 1 auto;
   }
 
-  #camera {
+  .camera-preview {
     right: 12px;
     bottom: 82px;
     width: 148px;

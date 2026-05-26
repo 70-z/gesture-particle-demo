@@ -6,6 +6,7 @@ const ALBUM_STORAGE_KEY = "gestureParticleAlbumFolders";
 const GITHUB_TOKEN_KEY = "gestureParticleGithubToken";
 const LEGACY_CJ_STORAGE_KEY = "gestureParticleCjAlbum";
 const STATUS_COLLAPSED_KEY = "gestureParticleStatusCollapsed";
+const CAMERA_PREVIEW_COLLAPSED_KEY = "gestureParticleCameraPreviewCollapsed";
 const DEFAULT_FOLDER_KEY = "20260509";
 const CJ_FOLDER_KEY = "cj";
 const GITHUB_OWNER = "70-z";
@@ -27,6 +28,8 @@ const DEFAULT_IMAGES = [
 const folders = loadStoredFolders();
 
 const canvas = document.querySelector("#scene");
+const cameraPreview = document.querySelector("#cameraPreview");
+const cameraPreviewToggle = document.querySelector("#cameraPreviewToggle");
 const video = document.querySelector("#camera");
 const cameraStatus = document.querySelector("#cameraStatus");
 const gestureStatus = document.querySelector("#gestureStatus");
@@ -188,6 +191,7 @@ renderFolderControls();
 loadRemoteFolders();
 setupHands();
 initStatusPanel();
+initCameraPreviewPanel();
 
 async function setupHands({ force = false } = {}) {
   if (!window.Hands) {
@@ -238,6 +242,22 @@ function setStatusPanelCollapsed(collapsed) {
   statusToggle.setAttribute("aria-expanded", String(!collapsed));
   statusToggle.setAttribute("aria-label", collapsed ? "展开状态栏" : "收起状态栏");
   localStorage.setItem(STATUS_COLLAPSED_KEY, String(collapsed));
+}
+
+function initCameraPreviewPanel() {
+  const collapsed = localStorage.getItem(CAMERA_PREVIEW_COLLAPSED_KEY) === "true";
+  setCameraPreviewCollapsed(collapsed);
+  cameraPreviewToggle.addEventListener("click", () => {
+    setCameraPreviewCollapsed(!cameraPreview.classList.contains("collapsed"));
+  });
+}
+
+function setCameraPreviewCollapsed(collapsed) {
+  cameraPreview.classList.toggle("collapsed", collapsed);
+  cameraPreviewToggle.textContent = collapsed ? "摄像头" : "收起";
+  cameraPreviewToggle.setAttribute("aria-expanded", String(!collapsed));
+  cameraPreviewToggle.setAttribute("aria-label", collapsed ? "展开摄像头画面" : "收起摄像头画面");
+  localStorage.setItem(CAMERA_PREVIEW_COLLAPSED_KEY, String(collapsed));
 }
 
 function createHandsModel() {

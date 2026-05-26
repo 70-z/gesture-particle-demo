@@ -4,11 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>青年才俊</title>
-    <link rel="stylesheet" href="./src/styles.css?v=25" />
+    <link rel="stylesheet" href="./src/styles.css?v=26" />
   </head>
   <body>
     <main id="app">
-      <video id="camera" playsinline muted></video>
+      <div id="cameraPreview" class="camera-preview">
+        <button
+          id="cameraPreviewToggle"
+          class="camera-preview-toggle"
+          type="button"
+          aria-controls="camera"
+          aria-expanded="true"
+          aria-label="收起摄像头画面"
+        >收起</button>
+        <video id="camera" playsinline muted></video>
+      </div>
       <canvas id="scene"></canvas>
 
       <section class="hud" aria-label="粒子系统状态">
@@ -100,6 +110,6 @@
         }
       }
     </script>
-    <script type="module" src="./src/main.js?v=31"></script>
+    <script type="module" src="./src/main.js?v=32"></script>
   </body>
 </html>

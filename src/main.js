@@ -38,7 +38,6 @@ const spreadControl = document.querySelector("#spreadControl");
 const textOneButton = document.querySelector("#textOne");
 const textTwoButton = document.querySelector("#textTwo");
 const numberThreeButton = document.querySelector("#numberThree");
-const numberFourButton = document.querySelector("#numberFour");
 const exitGalleryButton = document.querySelector("#exitGallery");
 const defaultGalleryButton = document.querySelector("#defaultGalleryButton");
 const newFolderButton = document.querySelector("#newFolderButton");
@@ -138,6 +137,7 @@ let pendingFingerCountAt = 0;
 let lastFiveFingerAt = 0;
 let galleryState = "closed";
 let galleryIndex = 0;
+let galleryPhotoToken = 0;
 let lastPhotoSwitchAt = 0;
 let lastGalleryToggleAt = 0;
 
@@ -148,7 +148,6 @@ window.addEventListener("resize", resize);
 textOneButton.addEventListener("click", () => handleNumberAction(1, "点击 1"));
 textTwoButton.addEventListener("click", () => handleNumberAction(2, "点击 2"));
 numberThreeButton.addEventListener("click", () => handleNumberAction(3, "点击 3"));
-numberFourButton.addEventListener("click", () => handleNumberAction(4, "点击 4"));
 exitGalleryButton.addEventListener("click", () => closeGallery("点击退出相册"));
 defaultGalleryButton.addEventListener("click", () => openGallery(activeFolderKey));
 newFolderButton.addEventListener("click", createFolder);
@@ -168,7 +167,7 @@ spreadControl.addEventListener("input", () => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (["1", "2", "3", "4"].includes(event.key)) {
+  if (galleryState !== "open" && ["1", "2", "3"].includes(event.key)) {
     handleNumberAction(Number(event.key), `键盘 ${event.key}`);
     return;
   }
@@ -215,7 +214,7 @@ async function setupHands({ force = false } = {}) {
     const trackLabel = stream.getVideoTracks()[0]?.label;
     const name = trackLabel || devices[0]?.label || "摄像头";
     debugStatus.textContent = `设备 ${devices.length || 1}`;
-    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 / 3 / 4 切文字；相册内手势 1-4 切图。`);
+    showToast(`摄像头已连接：${name}。普通模式手势 1 / 2 / 3 切文字；相册内请使用左右箭头切图。`);
   } catch (error) {
     cameraStatus.textContent = readableCameraError(error).title;
     gestureStatus.textContent = "手动演示";
@@ -352,7 +351,7 @@ function handleHandResults(results) {
   const primaryCount = smoothFingerCount(rawPrimaryCount);
 
   if (galleryState === "open") {
-    handleGalleryGestures(primaryCount, handSpread, openness);
+    updateGalleryMotion(handSpread, openness);
     return;
   }
 
@@ -687,17 +686,13 @@ function makeScatterTargets() {
 
 function handleNumberAction(number, messagePrefix = "切换") {
   if (galleryState === "open") {
-    if (number >= 1 && number <= 4) {
-      showGalleryPhoto(number - 1, `${messagePrefix}：第 ${number} 张`);
-    }
+    showToast("相册图片已取消手势和数字切换，请使用左右箭头。");
     return;
   }
 
   if (number >= 1 && number <= 3) {
     const shape = shapeKeyFromNumber(number);
     setActiveShape(shape, `${messagePrefix}：${TEXTS[shape]}`);
-  } else if (number === 4) {
-    showToast("手势 4 已删除；打开相册后按钮 4 可切第 4 张照片。");
   } else {
     showToast("普通模式下手势 1/2/3 切文字。");
   }
@@ -716,7 +711,6 @@ function setActiveShape(shape, message) {
   textOneButton.classList.toggle("active", shape === "one");
   textTwoButton.classList.toggle("active", shape === "two");
   numberThreeButton.classList.toggle("active", shape === "three");
-  numberFourButton.classList.remove("active");
   exitGalleryButton.classList.remove("active");
   defaultGalleryButton.classList.remove("active");
   newFolderButton.classList.remove("active");
@@ -742,7 +736,6 @@ function openGallery(folderKey = activeFolderKey) {
   textOneButton.classList.remove("active");
   textTwoButton.classList.remove("active");
   numberThreeButton.classList.remove("active");
-  numberFourButton.classList.toggle("active", galleryIndex === 3);
   exitGalleryButton.classList.add("active");
   defaultGalleryButton.classList.add("active");
   motionStatus.textContent = "相册";
@@ -765,15 +758,12 @@ function closeGallery(message = "已退出相册。") {
   showToast(message);
 }
 
-function handleGalleryGestures(primaryCount, handSpread, openness) {
+function updateGalleryMotion(handSpread, openness) {
   gestureStatus.textContent = "相册模式";
   targetSpread = Math.max(0.24, handSpread, openness * 0.62);
   targetSpread = THREE.MathUtils.clamp(targetSpread, 0, 1);
   spreadControl.value = String(Math.round(targetSpread * 100));
   motionStatus.textContent = "相册";
-  const now = performance.now();
-  if (now - lastPhotoSwitchAt < 850) return;
-  if (primaryCount >= 1 && primaryCount <= 4) showGalleryPhoto(primaryCount - 1, `手势 ${primaryCount}`);
 }
 
 function switchGalleryPhoto(direction) {
@@ -784,7 +774,7 @@ function switchGalleryPhoto(direction) {
   }
   galleryIndex = (galleryIndex + direction + images.length) % images.length;
   lastPhotoSwitchAt = performance.now();
-  updateGalleryPhoto();
+  updateGalleryPhoto(direction);
 }
 
 function showGalleryPhoto(index, message) {
@@ -801,29 +791,26 @@ function showGalleryPhoto(index, message) {
     updateGalleryPhoto();
     return;
   }
+  const previousIndex = galleryIndex;
   galleryIndex = index;
   lastPhotoSwitchAt = performance.now();
-  updateGalleryPhoto();
+  updateGalleryPhoto(index > previousIndex ? 1 : -1);
   if (message) showToast(message);
 }
 
-function updateGalleryPhoto() {
+function updateGalleryPhoto(direction = 0) {
   const folder = folders[activeFolderKey];
   const images = getActiveImages();
+  const token = ++galleryPhotoToken;
   galleryTitle.textContent = folder.title;
+  galleryFrame.classList.remove("from-prev", "from-next");
   galleryFrame.classList.add("switching");
+  if (direction > 0) galleryFrame.classList.add("from-next");
+  if (direction < 0) galleryFrame.classList.add("from-prev");
 
-  window.setTimeout(() => {
-    if (images.length) {
-      galleryIndex = THREE.MathUtils.clamp(galleryIndex, 0, images.length - 1);
-      galleryImage.src = images[galleryIndex];
-      galleryImage.alt = `${folder.title}照片 ${galleryIndex + 1}`;
-      galleryImage.hidden = false;
-      galleryEmpty.hidden = true;
-      galleryCounter.textContent = `${galleryIndex + 1} / ${images.length}`;
-      activeTargets = makeAlbumTargets(`${galleryIndex + 1}/${images.length}`);
-      updateNumberButtonState();
-    } else {
+  if (!images.length) {
+    window.setTimeout(() => {
+      if (token !== galleryPhotoToken) return;
       galleryImage.removeAttribute("src");
       galleryImage.hidden = true;
       galleryEmpty.hidden = false;
@@ -831,17 +818,49 @@ function updateGalleryPhoto() {
       galleryCounter.textContent = "0 / 0";
       activeTargets = makeAlbumTargets("0/0");
       updateNumberButtonState();
-    }
+      galleryFrame.classList.remove("switching", "from-prev", "from-next");
+    }, 140);
+    return;
+  }
+
+  galleryIndex = THREE.MathUtils.clamp(galleryIndex, 0, images.length - 1);
+  const src = images[galleryIndex];
+  const nextImage = new Image();
+  nextImage.onload = () => {
+    if (token !== galleryPhotoToken) return;
+    galleryImage.src = src;
+    galleryImage.alt = `${folder.title}照片 ${galleryIndex + 1}`;
+    galleryImage.hidden = false;
+    galleryEmpty.hidden = true;
+    galleryCounter.textContent = `${galleryIndex + 1} / ${images.length}`;
+    activeTargets = makeAlbumTargets(`${galleryIndex + 1}/${images.length}`);
+    updateNumberButtonState();
     galleryFrame.classList.remove("switching");
-  }, 120);
+    window.setTimeout(() => galleryFrame.classList.remove("from-prev", "from-next"), 260);
+    preloadNearbyGalleryImages(images, galleryIndex);
+  };
+  nextImage.onerror = () => {
+    if (token !== galleryPhotoToken) return;
+    galleryFrame.classList.remove("switching", "from-prev", "from-next");
+    showToast("这张照片暂时加载失败，请切换下一张。");
+  };
+  nextImage.src = src;
+}
+
+function preloadNearbyGalleryImages(images, index) {
+  if (images.length < 2) return;
+  [index - 1, index + 1].forEach((rawIndex) => {
+    const nextIndex = (rawIndex + images.length) % images.length;
+    const image = new Image();
+    image.src = images[nextIndex];
+  });
 }
 
 function updateNumberButtonState() {
   const isOpen = galleryState === "open";
-  textOneButton.classList.toggle("active", isOpen && galleryIndex === 0);
-  textTwoButton.classList.toggle("active", isOpen && galleryIndex === 1);
-  numberThreeButton.classList.toggle("active", isOpen && galleryIndex === 2);
-  numberFourButton.classList.toggle("active", isOpen && galleryIndex === 3);
+  textOneButton.classList.remove("active");
+  textTwoButton.classList.remove("active");
+  numberThreeButton.classList.remove("active");
   exitGalleryButton.classList.toggle("active", isOpen);
   defaultGalleryButton.classList.toggle("active", isOpen);
   deletePhotoButton.classList.toggle("active", isOpen && getActiveImages().length > 0);

@@ -360,13 +360,24 @@ body {
     0 28px 92px rgba(0, 0, 0, 0.46),
     0 0 80px rgba(255, 93, 168, 0.16);
   transition:
-    opacity 180ms ease,
-    transform 220ms ease;
+    opacity 240ms ease,
+    transform 300ms ease,
+    filter 300ms ease;
+  will-change: opacity, transform, filter;
 }
 
 .gallery-frame.switching img {
-  opacity: 0;
-  transform: scale(0.985);
+  opacity: 0.18;
+  filter: blur(7px);
+  transform: scale(0.986);
+}
+
+.gallery-frame.switching.from-next img {
+  transform: translateX(-18px) scale(0.986);
+}
+
+.gallery-frame.switching.from-prev img {
+  transform: translateX(18px) scale(0.986);
 }
 
 .gallery-frame figcaption {
